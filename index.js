@@ -343,7 +343,11 @@ let ecKeyUtils = (() => {
                   [len, pos] = decodeLength(buf, pos);
 
                   if (pos + len > buf.length) throw err;
-                  r.publicKey = buf.slice(-(len - 3));
+                  if (buf[pos++] != 0x03) throw err;
+
+                  [len, pos] = decodeLength(buf, pos);
+                  // remove the leading 0
+                  r.publicKey = buf.slice(-(len - 1));
             }
             return r;
       }
@@ -372,6 +376,7 @@ let ecKeyUtils = (() => {
             [len, pos] = decodeLength(buf, pos);
 
             if (pos + len > buf.length) throw err;
+            // remove the leading 0
             r.publicKey = buf.slice(-(len - 1));
             return r;
       }

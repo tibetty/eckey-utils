@@ -39,12 +39,15 @@ console.log(verify.verify(pemKeyPair.publicKey, sig));
 *Parse Key Info from PEM*
 ```js
 const ecKeyUtils = require('eckey-utils');
+
 console.log(ecKeyUtils.parseKeyInfo(`-----BEGIN EC PRIVATE KEY-----
 MIHcAgEBBEIBL1+Q5pDjC9ijZg/XCBhaJrV8pM+v/XgcwC53sWRFK69paB9zzVAD
 ZqzrgXOAghxqWx0QEG8RhvXowXzMOuLmHz2gBwYFK4EEACOhgYkDgYYABAAlLIp1
 uSSj9wjrpr4+9UitBXtEwB5AAS/PHyK/FLvM0Ybz0PDeg8RTqKXJziwz0i0AjvWp
 FQSyuJe5PXesKhRzXQDqJQTijoekz5mWOdYLRnKln0B87JrXbpx+R0slrEJzPeHo
-7fv+DaM09Dfvy30CLHhzaGqRpesz+rvPVKYCyun8EQ==`);
+7fv+DaM09Dfvy30CLHhzaGqRpesz+rvPVKYCyun8EQ==
+-----END EC PRIVATE KEY-----`));
+
 console.log(ecKeyUtils.parseKeyInfo(`-----BEGIN PUBLIC KEY-----
 MD4wEAYHKoZIzj0CAQYFZysBBAkDKgAEgiGotjsUDWG11VFfkBsSoscOvrH27hjw
 6bHXZwpyLjXW19Th2MRYGg==
