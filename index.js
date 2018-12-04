@@ -383,9 +383,15 @@ let ecKeyUtils = (() => {
 
       return {
             generatePemKeys: (curveName, keyPair) => {
+                  if (!curveName)
+                        throw Error('curveName parameter is mandatory');
                   let curve = curveToOidMaps[curveName];
                   if (curve === null)
                         throw Error('Unsupported elliptic curve');
+                  if (!keyPair)
+                        throw Error('KeyPair parameter is mandatory');
+                  if (!keyPair.publicKey || !keyPair.privateKey)
+                        throw Error('publicKey and privateKey are mandatory for keyPair');
                   if (keyPair.publicKey.constructor.name !== 'Buffer' || keyPair.privateKey.constructor.name !== 'Buffer')
                         throw Error('Only supports raw keys in Buffer');
 
@@ -402,10 +408,10 @@ let ecKeyUtils = (() => {
             
             parseKeyInfo: (pem) => {
                   let s = null;
-                  // DER of ECPrivateKey
+                  // DER encoding of ECPrivateKey
                   if (s = /^\-\-\-\-\-BEGIN EC PRIVATE KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END EC PRIVATE KEY\-\-\-\-\-$/g.exec(pem))
                         return parseEcsk(Buffer.from(s[1], 'base64'));
-                  // DER of SubjectPublicKeyInfo
+                  // DER encoding of SubjectPublicKeyInfo
                   else if (s = /^\-\-\-\-\-BEGIN PUBLIC KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END PUBLIC KEY\-\-\-\-\-$/g.exec(pem))
                         return parseSpki(Buffer.from(s[1], 'base64'));
                   else
