@@ -4,7 +4,7 @@ Node.js based EC key utilities to generate PEM keys (required by crypto.sign and
 
 ## Motivation
 
-Namely the ECDH.generateKeys function should be used to generate EC keys for the key-exchange purpose, but actually the keys it generates are bare/raw ec private key (i.e., `*d*` in the cryptographic context) and ec public key (the relevant EC point, calculated from base point `*G*` and `*d*`), so supposedly there's no obstacle to use it in ECSDA scenario except that the crypto.Sign and crypto.Verify function doesn't support using raw key directly. This library will bridge this gap by converting raw keys to PEM keys.
+Namely the ECDH.generateKeys function should be used to generate EC keys for the key-exchange purpose, but actually the keys it generates are bare/raw ec private key (i.e., *`d`* in the cryptographic context) and ec public key (the relevant EC point, calculated from base point *`G`* and *`d`*), so supposedly there's no obstacle to use it in ECSDA scenario except that the crypto.Sign and crypto.Verify function doesn't support using raw key directly. This library will bridge this gap by converting raw keys to PEM keys.
 
 On the other side, this library provide a symmetrical function to parses key info (private key PEM -> {privateKey, curveName, publicKey}, public key PEM -> {curveName, publicKey}) from given EC PEM contents, and such information can be used to initialize crypto.ECDH.
 
