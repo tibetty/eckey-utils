@@ -5,11 +5,19 @@ for (let curveName of curveNames) {
       console.log(`------${curveName}------`);
       const ecdh = crypto.createECDH(curveName);
       ecdh.generateKeys();
+      
+      let privateKey = ecdh.getPrivateKey(),
+            publicKey = ecdh.getPublicKey()
 
-      const pemKeyPair = ecKeyUtils.generatePemKeys(curveName, {
-            privateKey: ecdh.getPrivateKey(),
-            publicKey: ecdh.getPublicKey()
-      });
+      const pemKeyPair = ecKeyUtils.generatePemKeys(curveName, {privateKey, publicKey});
+
+      let keyInfo = ecKeyUtils.parseKeyInfo(pemKeyPair.privateKey);
+      console.log('Equal PrivateKey?', privateKey.compare(keyInfo.privateKey) === 0);
+      console.log('Equal PublicKey?', publicKey.compare(keyInfo.publicKey) === 0);
+      console.log('Equal Curve?', keyInfo.curveName === curveName);
+      keyInfo = ecKeyUtils.parseKeyInfo(pemKeyPair.publicKey);
+      console.log('Equal PublicKey?', publicKey.compare(keyInfo.publicKey) === 0);
+      console.log('Equal Curve?', keyInfo.curveName === curveName);
 
       const sign = crypto.createSign('sha256');
       const message = Buffer.from('Hello, World!');
@@ -18,5 +26,5 @@ for (let curveName of curveNames) {
 
       const verify = crypto.createVerify('sha256');
       verify.update(message);
-      console.log(verify.verify(pemKeyPair.publicKey, sig));
+      console.log('Singature Passed Verification?', verify.verify(pemKeyPair.publicKey, sig));
 }
