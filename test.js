@@ -12,20 +12,20 @@ for (let curveName of curveNames) {
 
       let pem = ecKeyUtils.generatePem(curveName, {privateKey, publicKey});
       let sk = pem.privateKey;
-      let keyInfo = ecKeyUtils.parseKeyInfo(sk);
+      let keyInfo = ecKeyUtils.parsePem(sk);
       console.log('Equal Curve?', keyInfo.curveName === curveName);
       console.log('Equal PrivateKey?', (privateKey.compare(keyInfo.privateKey) === 0) && (keyInfo.privateKey.compare(privateKey) === 0));
       console.log('Equal PublicKey?', (publicKey.compare(keyInfo.publicKey) === 0) && (keyInfo.publicKey.compare(publicKey) === 0));
 
       pem = ecKeyUtils.generatePem({curveName, privateKey});
       sk = pem.privateKey;
-      keyInfo = ecKeyUtils.parseKeyInfo(sk);
+      keyInfo = ecKeyUtils.parsePem(sk);
       console.log('Equal Curve?', keyInfo.curveName === curveName);
       console.log('Equal PrivateKey?', (privateKey.compare(keyInfo.privateKey) === 0) && (keyInfo.privateKey.compare(privateKey) === 0));
       
       pem = ecKeyUtils.generatePem({curveName, publicKey});
       pk = pem.publicKey;
-      keyInfo = ecKeyUtils.parseKeyInfo(pk);
+      keyInfo = ecKeyUtils.parsePem(pk);
       console.log('Equal Curve?', keyInfo.curveName === curveName);
       console.log('Equal PublicKey?', (publicKey.compare(keyInfo.publicKey) === 0) && (keyInfo.publicKey.compare(publicKey) === 0));
 

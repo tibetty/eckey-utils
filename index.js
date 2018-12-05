@@ -338,7 +338,7 @@ let ecKeyUtils = (() => {
                   return result;
             },
             
-            parseKeyInfo: (pemContent) => {
+            parsePem: (pemContent) => {
                   if (!pemContent) throw Error('PEM content is not optional');
 
                   let s = null;
