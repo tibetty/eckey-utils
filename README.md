@@ -21,7 +21,7 @@ const curveName = 'secp256k1';
 const ecdh = crypto.createECDH(curveName);
 ecdh.generateKeys();
 
-const pemKeyPair = ecKeyUtils.generatePem({
+const pems = ecKeyUtils.generatePem({
 	curveName,
 	privateKey: ecdh.getPrivateKey(),
 	publicKey: ecdh.getPublicKey()
@@ -30,11 +30,11 @@ const pemKeyPair = ecKeyUtils.generatePem({
 const sign = crypto.createSign('sha256');
 const message = Buffer.from('Hello, World!');
 sign.update(message);
-let sig = sign.sign(pemKeyPair.privateKey);
+let sig = sign.sign(pems.privateKey);
 
 const verify = crypto.createVerify('sha256');
 verify.update(message);
-console.log(verify.verify(pemKeyPair.publicKey, sig));
+console.log(verify.verify(pems.publicKey, sig));
 ```
 
 *Parse Key Info from PEM*
