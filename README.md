@@ -1,19 +1,19 @@
 # eckeyUtils
 
-Node.js based EC key utilities to generate PEM keys (required by crypto.sign and crypto.verify) from the raw ones generated crypto.ECDH and to parse key info from given PEM content.
+Node.js based EC key utilities to generate the PEM contents (required by crypto.sign and crypto.verify) from the raw keys generated crypto.ECDH and to parse key info from given PEM content.
 
 ## Motivation
 
 Namely the ECDH.generateKeys function should be used to generate EC keys for the key-exchange purpose, but actually the keys it generates are bare/raw ec private key (i.e., *`d`* in the cryptographic context) and ec public key (the relevant EC point, calculated from base point *`G`* and *`d`*), so supposedly there's no obstacle to use it in ECSDA scenario except that the crypto.Sign and crypto.Verify function doesn't support using raw key directly. This library will bridge this gap by converting raw keys to PEM keys.
 
-On the other side, this library provide a symmetrical function to parses key info (private key PEM -> {privateKey, curveName, publicKey}, public key PEM -> {curveName, publicKey}) from given EC PEM contents, and such information can be used to initialize crypto.ECDH.
+On the other side, this library provide a symmetrical function to parse key info (private key PEM -> {privateKey, curveName, publicKey?}, public key PEM -> {curveName, publicKey}) from given EC PEM contents, and such information can be used by crypto.ECDH.
 
 ## CAUTION
-Some people argue that use one key pair for both ECDH and ECDSA will compromise the security, so please try to avoid using one key-pair for both usages except that you know there's no negative byeffect.
+Some people argue that use one key pair for both ECDH and ECDSA will compromise the security, so please try to avoid using one key pair for both usages except that you know dearly that there's no negative byeffect.
 
 ## Usage
 
-*Generate PEMs from raw keys*
+*Generate PEM from raw keys*
 ```js
 const crypto = require('crypto'), ecKeyUtils = require('eckey-utils');
 const curveName = 'secp256k1';
@@ -21,7 +21,8 @@ const curveName = 'secp256k1';
 const ecdh = crypto.createECDH(curveName);
 ecdh.generateKeys();
 
-const pemKeyPair = ecKeyUtils.generatePemKeys(curveName, {
+const pemKeyPair = ecKeyUtils.generatePem({
+	curveName,
 	privateKey: ecdh.getPrivateKey(),
 	publicKey: ecdh.getPublicKey()
 });
