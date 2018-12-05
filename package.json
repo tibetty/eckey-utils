@@ -13,9 +13,13 @@
   "keywords": [
     "ec",
     "key",
+    "public key",
+    "private key",
     "conversion",
     "raw",
     "PEM",
+    "generate",
+    "parse",
     "ECDH",
     "ECDSA",
     "sign",
