@@ -254,7 +254,7 @@ let ecKeyUtils = (() => {
             return r;
       }
 
-      function rawSkToPem(curve, sk, pk) {
+      function encodeSkToPem(curve, sk, pk) {
             // Generate ECPrivateKey @ rfc5915 with simple Buffer concatenation
             /*
             ECPrivateKey ::= SEQUENCE {
@@ -271,9 +271,12 @@ let ecKeyUtils = (() => {
             crve = Buffer.concat([Buffer.from([0xa0]), encodeLength(crve.length), crve]);
             // publicKey  [1] BIT STRING OPTIONAL
             // leading 0 means 0 bit(s) unused
-            let pke = Buffer.concat([Buffer.from([0x00]), pk]);
-            pke = Buffer.concat([Buffer.from([0x03]), encodeLength(pke.length), pke]);
-            pke = Buffer.concat([Buffer.from([0xa1]), encodeLength(pke.length), pke])
+            let pke = Buffer.from([]);
+            if (pk) {
+                  pke = Buffer.concat([Buffer.from([0x00]), pk]);
+                  pke = Buffer.concat([Buffer.from([0x03]), encodeLength(pke.length), pke]);
+                  pke = Buffer.concat([Buffer.from([0xa1]), encodeLength(pke.length), pke]);
+            }
             
             // version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1)
             let seqe = Buffer.concat([Buffer.from([0x02, 0x01, 0x01]), ske, crve, pke]);
@@ -284,7 +287,7 @@ let ecKeyUtils = (() => {
                   '\n-----END EC PRIVATE KEY-----';
       }
 
-      function rawPkToPem(curve, pk) {
+      function encodePkToPem(curve, pk) {
             // Generate ECC SubjectPublicKeyInfo @ rf5480 with simple Buffer concatenation
             /*
                  SubjectPublicKeyInfo  ::=  SEQUENCE  {
@@ -316,7 +319,7 @@ let ecKeyUtils = (() => {
             let pos = 0;
             if (buf[pos++] != 0x30) throw err;
 
-            // version & private key header
+            // a quick search for version & private key header
             pos = buf.indexOf(Buffer.from([0x02, 0x01, 0x01, 0x04]));
             if (pos < 0) throw err;
             pos += 4;
@@ -360,6 +363,7 @@ let ecKeyUtils = (() => {
             let pos = 0;
             if (buf[pos++] != 0x30) throw err;
 
+            // a quick search for algorithm
             pos = buf.indexOf(ecAlg);
             if (pos < 0) throw err;
             
@@ -382,40 +386,55 @@ let ecKeyUtils = (() => {
       }
 
       return {
-            generatePemKeys: (curveName, keyPair) => {
+            generatePem: (cnOrAio, keyPair) => {
+                  let curveName = cnOrAio;
+                  let sk = null, pk = null;                  
+                  if (typeof cnOrAio == 'object') {
+                        curveName = cnOrAio.curveName;
+                        sk = cnOrAio.privateKey;
+                        pk = cnOrAio.publicKey;
+                  } else {
+                        sk = keyPair? keyPair.privateKey : sk;
+                        pk = keyPair? keyPair.publicKey : pk;
+                  }
+
                   if (!curveName)
-                        throw Error('curveName parameter is mandatory');
+                        throw Error('Curve name is not optional');
                   let curve = curveToOidMaps[curveName];
                   if (curve === null)
                         throw Error('Unsupported elliptic curve');
-                  if (!keyPair)
-                        throw Error('KeyPair parameter is mandatory');
-                  if (!keyPair.publicKey || !keyPair.privateKey)
-                        throw Error('publicKey and privateKey are mandatory for keyPair');
-                  if (keyPair.publicKey.constructor.name !== 'Buffer' || keyPair.privateKey.constructor.name !== 'Buffer')
+                  
+                  if (!sk && !pk)
+                        throw Error('Either privateKey or publicKey is required');
+
+                  if (sk && !(sk instanceof Buffer) || pk && !(pk instanceof Buffer))
                         throw Error('Only supports raw keys in Buffer');
 
                   // To ensure the oid encoding happens once for all
-                  if (curve.constructor.name !== 'Buffer') {
+                  if (!(curve instanceof Buffer)) {
                         curveToOidMaps[curveName] = curve = encodeOid(curve);
                   }
 
-                  return {
-                        privateKey: rawSkToPem(curve, keyPair.privateKey, keyPair.publicKey),
-                        publicKey: rawPkToPem(curve, keyPair.publicKey)
-                  }
+                  let result = {};
+
+                  if (sk) result.privateKey = encodeSkToPem(curve, sk, pk);
+                  if (pk) result.publicKey = encodePkToPem(curve, pk);
+                  
+                  return result;
             },
             
-            parseKeyInfo: (pem) => {
+            parseKeyInfo: (pemContent) => {
+                  if (!pemContent) throw Error('PEM content is not optional');
+
                   let s = null;
                   // DER encoding of ECPrivateKey
-                  if (s = /^\-\-\-\-\-BEGIN EC PRIVATE KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END EC PRIVATE KEY\-\-\-\-\-$/g.exec(pem))
+                  if (s = /^\-\-\-\-\-BEGIN EC PRIVATE KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END EC PRIVATE KEY\-\-\-\-\-$/g.exec(pemContent))
                         return parseEcsk(Buffer.from(s[1], 'base64'));
                   // DER encoding of SubjectPublicKeyInfo
-                  else if (s = /^\-\-\-\-\-BEGIN PUBLIC KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END PUBLIC KEY\-\-\-\-\-$/g.exec(pem))
+                  else if (s = /^\-\-\-\-\-BEGIN PUBLIC KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END PUBLIC KEY\-\-\-\-\-$/g.exec(pemContent))
                         return parseSpki(Buffer.from(s[1], 'base64'));
                   else
-                        throw Error('Invalid pem content');
+                        throw Error('Invalid PEM content');
             }
       }
 })();
