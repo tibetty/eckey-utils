@@ -1,6 +1,6 @@
 let ecKeyUtils = (() => {
       // the map of curveName and its oid
-      const curveToOidMaps = {
+      const curveToOid = {
             // ANSI X9.62 prime
             'prime192v1':	'1.2.840.10045.3.1.1',
             'prime192v2':	'1.2.840.10045.3.1.2',
@@ -100,10 +100,12 @@ let ecKeyUtils = (() => {
       };
 
 
-      const oidToCurveMaps = {};
-      for (let [k, v] of Object.entries(curveToOidMaps))
-            oidToCurveMaps[v] = k;
+      // generate a reverse map for curveToOid
+      const oidToCurve = {};
+      for (let [k, v] of Object.entries(curveToOid))
+            oidToCurve[v] = k;
 
+      // generate a reverse map for oidedToAnsi
       const ansiToOided = {};
       for (let [k, v] of Object.entries(oidedToAnsi))
             ansiToOided[v] = k;
@@ -262,7 +264,7 @@ let ecKeyUtils = (() => {
 
             [len, pos] = decodeLength(buf, pos);
             let oid = decodeOid(buf, pos, len);
-            r.curveName = oidToCurveMaps[oid];
+            r.curveName = oidToCurve[oid];
             pos += len;
             
             // parse optional publicKey if exists
@@ -299,7 +301,7 @@ let ecKeyUtils = (() => {
             let len = 0;
             [len, pos] = decodeLength(buf, pos);
             let oid = decodeOid(buf, pos, len);
-            r.curveName = oidToCurveMaps[oid];
+            r.curveName = oidToCurve[oid];
             pos += len;
 
             if (buf[pos++] != 0x03) throw err;              // tag of BIT STRING
@@ -341,7 +343,7 @@ let ecKeyUtils = (() => {
                   let {cname, sk, pk} = parseParams(arg1, arg2);
                   if (!cname)
                         throw Error('Curve name is not optional');
-                  let curve = curveToOidMaps[cname];
+                  let curve = curveToOid[cname];
                   if (curve === null)
                         throw Error('Unsupported elliptic curve');
                   
@@ -353,7 +355,7 @@ let ecKeyUtils = (() => {
 
                   // To ensure the oid encoding happens once for all
                   if (!(curve instanceof Buffer)) {
-                        curveToOidMaps[cname] = curve = encodeOid(curve);
+                        curveToOid[cname] = curve = encodeOid(curve);
                   }
 
                   let result = {};
@@ -374,7 +376,7 @@ let ecKeyUtils = (() => {
                   let {cname, sk, pk} = parseParams(arg1, arg2);
                   if (!cname)
                         throw Error('Curve name is not optional');
-                  let curve = curveToOidMaps[cname];
+                  let curve = curveToOid[cname];
                   if (curve === null)
                         throw Error('Unsupported elliptic curve');
                   
@@ -386,7 +388,7 @@ let ecKeyUtils = (() => {
 
                   // To ensure the oid encoding happens once for all
                   if (!(curve instanceof Buffer)) {
-                        curveToOidMaps[cname] = curve = encodeOid(curve);
+                        curveToOid[cname] = curve = encodeOid(curve);
                   }
 
                   let result = {};
