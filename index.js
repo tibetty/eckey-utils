@@ -127,11 +127,11 @@ let ecKeyUtils = (() => {
 
       function decodeLength(buf, pos) {
             let v = buf[pos++];
-            if (v < 0x80)
+            if (!(v & 0x80))
                   return [v, pos];
 
             let l = 0;
-            while (v >= 0x80) {
+            while (v & 0x80) {
                   l = l << 7 | v & 0x7f;
                   v = buf[pos++];
             }
