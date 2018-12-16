@@ -410,7 +410,7 @@ let ecKeyUtils = (() => {
                   else if (s = /^\-\-\-\-\-BEGIN PUBLIC KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END PUBLIC KEY\-\-\-\-\-$/g.exec(pemContent))
                         return parseDer$Spki(Buffer.from(s[1], 'base64'));
                   else
-                        throw Error('Invalid PEM content');
+                        throw Error('Invalid or unsupported PEM content');
             },
 
             generateJwk: (arg1, arg2) => {

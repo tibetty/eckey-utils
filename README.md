@@ -8,7 +8,7 @@ Namely the ECDH.generateKeys function should be used to generate EC keys for the
 
 On the other side, this library provides a symmetrical function to parse key info (private key PEM -> {privateKey, curveName, publicKey?}, public key PEM -> {curveName, publicKey}) from the given EC PEM content, and such information can be used by crypto.ECDH.
 
-P.s., the latest update: add JWK support - generation and parse.
+P.s., the latest update: added JWK support - generation and parse.
 
 ## CAUTION
 Some people argue that use one key pair for both ECDH and ECDSA will compromise the security, so please try to avoid using one key pair for both usages except that you know dearly that there's no negative byeffect.
