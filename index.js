@@ -118,7 +118,7 @@ let ecKeyUtils = (() => {
             } else {
                   let t = [];
                   while (l > 0) {
-                        t.unshift(0x80 | (l & 0x7f));
+                        t.unshift(0x80 | l & 0x7f);
                         l >>= 7;
                   }
                   return Buffer.from(t);
@@ -131,8 +131,8 @@ let ecKeyUtils = (() => {
                   return [v, pos];
 
             let l = 0;
-            while (v > 0x80) {
-                  l = (l << 7) | (v & 0x7f);
+            while (v >= 0x80) {
+                  l = l << 7 | v & 0x7f;
                   v = buf[pos++];
             }
 
@@ -144,44 +144,44 @@ let ecKeyUtils = (() => {
             if (!/^[012]{1}\.\d{1,2}(\.\d+)+$/g.test(oid))
                   throw Error('Invalid Object Identifier');
 
-            let r = [], a = oid.split('.').map(v => parseInt(v));
-            r.unshift(a[0] * 40 + a[1]);
+            let ba = [], a = oid.split('.').map(v => parseInt(v));
+            ba.unshift(a[0] * 40 + a[1]);
             for (let i = 2; i < a.length; i++) {
                   let v = a[i];
                   let t = [];
                   t.unshift(v & 0x7f);
                   v >>= 7;
                   while (v > 0) {
-                        t.unshift(0x80 | (v & 0x7f));
+                        t.unshift(0x80 | v & 0x7f);
                         v >>= 7;
                   }
-                  r = r.concat(t);
+                  ba = ba.concat(t);
             }
 
             // Add tag of OBJECT IDENTIFIER & length
-            return Buffer.concat([Buffer.from([0x06]), encodeLength(r.length), Buffer.from(r)]);
+            return Buffer.concat([Buffer.from([0x06]), encodeLength(ba.length), Buffer.from(ba)]);
       }
 
       function decodeOid(buf, s, l) {
             let e = s + l;
-            let r = Math.floor(buf[s] / 40) + '.' + buf[s++] % 40;
+            let rs = Math.floor(buf[s] / 40) + '.' + buf[s++] % 40;
 
             while (s < e) {
                   let next = 0, v = 0;
                   do {
                         v = buf[s++];
-                        next = next << 7 | (v & 0x7f);
-                  }  while ((v & 0x80) !== 0);
-                  r += '.' + next;
+                        next = next << 7 | v & 0x7f;
+                  }  while (v & 0x80 !== 0);
+                  rs += '.' + next;
             }
-            return r;
+            return rs;
       }
 
       function encodeDerToPem(tag, der) {
             return `-----BEGIN ${tag}-----\n${der.toString('base64').replace(/.{64}/g, v => v + '\n').replace(/\n$/g, '')}\n-----END ${tag}-----`;
       }
 
-      function encodeSkToDer(curve, sk, pk) {
+      function encodeSkToDer(crve, sk, pk) {
             // Generate ECPrivateKey @ rfc5915 with simple Buffer concatenation
             /*
             ECPrivateKey ::= SEQUENCE {
@@ -194,8 +194,7 @@ let ecKeyUtils = (() => {
             // privateKey     OCTET STRING,
             let ske = Buffer.concat([Buffer.from([0x04]), encodeLength(sk.length), sk]);        // tag of OCTET STRING
             // parameters [0] ECParameters {{ NamedCurve }} OPTIONAL
-            let crve = curve;
-            crve = Buffer.concat([Buffer.from([0xa0]), encodeLength(crve.length), crve]);       // tag of [0]
+            let ecpe = Buffer.concat([Buffer.from([0xa0]), encodeLength(crve.length), crve]);       // tag of [0]
             // publicKey  [1] BIT STRING OPTIONAL
             let pke = Buffer.from([]);
             if (pk) {
@@ -205,17 +204,17 @@ let ecKeyUtils = (() => {
             }
             
             // version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1)
-            let seqe = Buffer.concat([Buffer.from([0x02, 0x01, 0x01]), ske, crve, pke]);        // version: tag of INTEGER | length = 1 | value = 1
+            let seqe = Buffer.concat([Buffer.from('020101', 'hex'), ske, ecpe, pke]);        // version: tag of INTEGER | length = 1 | value = 1
             seqe = Buffer.concat([Buffer.from([0x30]), encodeLength(seqe.length), seqe]);       // tag of SEQUENCE
 
             return seqe;
       }
 
-      function encodeSkToPem(curve, sk, pk) {
-            return encodeDerToPem('EC PRIVATE KEY', encodeSkToDer(curve, sk, pk));
+      function encodeSkToPem(crve, sk, pk) {
+            return encodeDerToPem('EC PRIVATE KEY', encodeSkToDer(crve, sk, pk));
       }
 
-      function encodePkToDer(curve, pk) {
+      function encodePkToDer(crve, pk) {
             // Generate ECC SubjectPublicKeyInfo @ rf5480 with simple Buffer concatenation
             /*
                  SubjectPublicKeyInfo  ::=  SEQUENCE  {
@@ -224,8 +223,7 @@ let ecKeyUtils = (() => {
                  }
             */
             // algorithm         AlgorithmIdentifier
-            let alge = curve;
-            alge = Buffer.concat([Buffer.from([0x30]), encodeLength(id_ecPublicKey.length + alge.length), id_ecPublicKey, alge]);   // tag of SEQUENCE
+            let alge = Buffer.concat([Buffer.from([0x30]), encodeLength(id_ecPublicKey.length + crve.length), id_ecPublicKey, crve]);   // tag of SEQUENCE
             // subjectPublicKey  BIT STRING
             
             let pke = Buffer.concat([Buffer.from([0x00]), pk]);                                                   // 0 bit(s) unused
@@ -234,15 +232,15 @@ let ecKeyUtils = (() => {
             return Buffer.concat([Buffer.from([0x30]), encodeLength(alge.length + pke.length), alge, pke]);       // tag of SEQUENCE
       }
 
-      function encodePkToPem(curve, pk) {
-            return encodeDerToPem('PUBLIC KEY', encodePkToDer(curve, pk));
+      function encodePkToPem(crve, pk) {
+            return encodeDerToPem('PUBLIC KEY', encodePkToDer(crve, pk));
       }
 
       // parse the DER encoded data of ECPrivateKey
       function parseDer$Ecsk(buf) {
             const err = Error('Invalid DER encoding of ECPrivateKey');
 
-            let r = {};
+            let rs = {};
             
             let pos = 0;
             if (buf[pos++] != 0x30) throw err;
@@ -255,7 +253,7 @@ let ecKeyUtils = (() => {
             let len = 0;
             [len, pos] = decodeLength(buf, pos);
             
-            r.privateKey = buf.slice(pos, pos + len);
+            rs.privateKey = buf.slice(pos, pos + len);
             pos += len;            
             if (buf[pos++] != 0xa0) throw err;              // tag of [0]
 
@@ -264,7 +262,7 @@ let ecKeyUtils = (() => {
 
             [len, pos] = decodeLength(buf, pos);
             let oid = decodeOid(buf, pos, len);
-            r.curveName = oidToCurve[oid];
+            rs.curveName = oidToCurve[oid];
             pos += len;
             
             // parse optional publicKey if exists
@@ -278,15 +276,15 @@ let ecKeyUtils = (() => {
 
                   [len, pos] = decodeLength(buf, pos);
                   // remove the leading 0
-                  r.publicKey = buf.slice(-(len - 1));      // decoded length - 1 byte for unused bit(s)
+                  rs.publicKey = buf.slice(-(len - 1));      // decoded length - 1 byte for unused bit(s)
             }
-            return r;
+            return rs;
       }
 
       // parse the DER encoded data of SubjectPublicKeyInfo
       function parseDer$Spki(buf) {
             const err = Error('Invalid DER encoding of SubjectPublicKeyInfo');
-            let r = {};
+            let rs = {};
 
             let pos = 0;
             if (buf[pos++] != 0x30) throw err;              // tag of SEQUENCE
@@ -301,7 +299,7 @@ let ecKeyUtils = (() => {
             let len = 0;
             [len, pos] = decodeLength(buf, pos);
             let oid = decodeOid(buf, pos, len);
-            r.curveName = oidToCurve[oid];
+            rs.curveName = oidToCurve[oid];
             pos += len;
 
             if (buf[pos++] != 0x03) throw err;              // tag of BIT STRING
@@ -309,8 +307,8 @@ let ecKeyUtils = (() => {
 
             if (pos + len > buf.length) throw err;
             // remove the leading 0
-            r.publicKey = buf.slice(-(len - 1));            // decoded length - 1 byte for unused bit(s)
-            return r;
+            rs.publicKey = buf.slice(-(len - 1));            // decoded length - 1 byte for unused bit(s)
+            return rs;
       }
 
       function parseParams(cnOrAio, keyPair) {
@@ -343,8 +341,8 @@ let ecKeyUtils = (() => {
                   let {cname, sk, pk} = parseParams(arg1, arg2);
                   if (!cname)
                         throw Error('Curve name is not optional');
-                  let curve = curveToOid[cname];
-                  if (curve === null)
+                  let crve = curveToOid[cname];
+                  if (crve === null)
                         throw Error('Unsupported elliptic curve');
                   
                   if (!sk && !pk)
@@ -354,14 +352,14 @@ let ecKeyUtils = (() => {
                         throw Error('Only supports raw keys in Buffer');
 
                   // To ensure the oid encoding happens once for all
-                  if (!(curve instanceof Buffer)) {
-                        curveToOid[cname] = curve = encodeOid(curve);
+                  if (!(crve instanceof Buffer)) {
+                        curveToOid[cname] = crve = encodeOid(crve);
                   }
 
                   let result = {};
 
-                  if (sk) result.privateKey = encodeSkToDer(curve, sk, pk);
-                  if (pk) result.publicKey = encodePkToDer(curve, pk);
+                  if (sk) result.privateKey = encodeSkToDer(crve, sk, pk);
+                  if (pk) result.publicKey = encodePkToDer(crve, pk);
                   
                   return result;
             },
@@ -376,8 +374,8 @@ let ecKeyUtils = (() => {
                   let {cname, sk, pk} = parseParams(arg1, arg2);
                   if (!cname)
                         throw Error('Curve name is not optional');
-                  let curve = curveToOid[cname];
-                  if (curve === null)
+                  let crve = curveToOid[cname];
+                  if (crve === null)
                         throw Error('Unsupported elliptic curve');
                   
                   if (!sk && !pk)
@@ -387,14 +385,14 @@ let ecKeyUtils = (() => {
                         throw Error('Only supports raw keys in Buffer');
 
                   // To ensure the oid encoding happens once for all
-                  if (!(curve instanceof Buffer)) {
-                        curveToOid[cname] = curve = encodeOid(curve);
+                  if (!(crve instanceof Buffer)) {
+                        curveToOid[cname] = crve = encodeOid(crve);
                   }
 
                   let result = {};
 
-                  if (sk) result.privateKey = encodeSkToPem(curve, sk, pk);
-                  if (pk) result.publicKey = encodePkToPem(curve, pk);
+                  if (sk) result.privateKey = encodeSkToPem(crve, sk, pk);
+                  if (pk) result.publicKey = encodePkToPem(crve, pk);
                   
                   return result;
             },
@@ -437,7 +435,7 @@ let ecKeyUtils = (() => {
                         if (pk[0] !== 0x04)
                               throw Error('Only support uncompressed public key');
 
-                        let x = pk.slice(1, (pk.length - 1) / 2 + 1), y = pk.slice(- (pk.length - 1) / 2);
+                        let x = pk.slice(1, (pk.length - 1) / 2 + 1), y = pk.slice(-(pk.length - 1) / 2);
                         publicKey.x = base64UrlEncode(x);
                         publicKey.y = base64UrlEncode(y);
                         result.publicKey = publicKey;
