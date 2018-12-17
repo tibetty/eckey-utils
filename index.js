@@ -171,7 +171,7 @@ let ecKeyUtils = (() => {
                   do {
                         v = buf[s++];
                         next = next << 7 | v & 0x7f;
-                  }  while (v & 0x80 !== 0);
+                  }  while (v & 0x80);
                   rs += '.' + next;
             }
             return rs;
@@ -294,7 +294,7 @@ let ecKeyUtils = (() => {
             if (pos < 0) throw err;
             
             // skip algorithm section
-            pos += 9;
+            pos += id_ecPublicKey.length;
             if (buf[pos++] != 0x06) throw err;              // tag of OBJECT IDENTIFIER
             let len = 0;
             [len, pos] = decodeLength(buf, pos);
