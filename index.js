@@ -113,16 +113,16 @@ let ecKeyUtils = (() => {
       const id_ecPublicKey = encodeOid('1.2.840.10045.2.1');
  
       function encodeLength(l) {
-            if (l < 0x80) {
+            if (l < 0x80)
                   return Buffer.from([l]);
-            } else {
-                  let t = [];
-                  while (l > 0) {
-                        t.unshift(0x80 | l & 0x7f);
-                        l >>= 7;
-                  }
-                  return Buffer.from(t);
+            
+            // else
+            let t = [];
+            while (l > 0) {
+                  t.unshift(0x80 | l & 0x7f);
+                  l >>= 7;
             }
+            return Buffer.from(t);
       }
 
       function decodeLength(buf, pos) {
@@ -223,6 +223,18 @@ let ecKeyUtils = (() => {
                  }
             */
             // algorithm         AlgorithmIdentifier
+            /*
+                  AlgorithmIdentifier  ::=  SEQUENCE  {
+                        algorithm   OBJECT IDENTIFIER,
+                        parameters  ANY DEFINED BY algorithm OPTIONAL
+                  }
+
+                  ECParameters ::= CHOICE {
+                        namedCurve         OBJECT IDENTIFIER
+                        -----implicitCurve   NULL
+                        -----specifiedCurve  SpecifiedECDomain
+                  }
+            */ 
             let alge = Buffer.concat([Buffer.from([0x30]), encodeLength(id_ecPublicKey.length + crve.length), id_ecPublicKey, crve]);   // tag of SEQUENCE
             // subjectPublicKey  BIT STRING
             
