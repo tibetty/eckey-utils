@@ -113,31 +113,35 @@ let ecKeyUtils = (() => {
       const id_ecPublicKey = encodeOid('1.2.840.10045.2.1');
  
       function encodeLength(l) {
+            // short form
             if (l < 0x80)
                   return Buffer.from([l]);
             
-            // else
+            // else long form
+            let noct = 0;
             let t = [];
             while (l > 0) {
-                  t.unshift(0x80 | l & 0x7f);
-                  l >>= 7;
+                  noct++;
+                  t.unshift(l & 0xff);
+                  l >>= 8;
             }
+            t.unshift(0x80 | noct);
+
             return Buffer.from(t);
       }
 
-      function decodeLength(buf, pos) {
-            let v = buf[pos++];
+      function decodeLength(buf, s) {
+            let v = buf[s++];
             if (!(v & 0x80))
-                  return [v, pos];
+                  return [v, s];
 
-            let l = 0;
-            while (v & 0x80) {
-                  l = l << 7 | v & 0x7f;
-                  v = buf[pos++];
+            let noct = v & 0x7f, e = s + noct, l = 0;
+            while (s < e) {
+                  v = buf[s++];
+                  l = l << 8 | v;
             }
 
-            // Need to go back one byte
-            return [l, pos - 1];
+            return [l, s];
       }
 
       function encodeOid(oid) {
@@ -323,18 +327,18 @@ let ecKeyUtils = (() => {
             return rs;
       }
 
-      function parseParams(cnOrAio, keyPair) {
+      function parseArgs(cnOrAio, keyPair) {
             let cname = cnOrAio;
             let sk = null, pk = null;                  
             if (typeof cnOrAio == 'object') {
-                  cname = cnOrAio.curveName;
-                  sk = cnOrAio.privateKey;
-                  pk = cnOrAio.publicKey;
+                  cname = cnOrAio.curve || cnOrAio.curveName;
+                  sk = cnOrAio.sk || cnOrAio.privateKey;
+                  pk = cnOrAio.pk || cnOrAio.publicKey;
             }
 
             if (keyPair) {
-                  sk = sk? sk : keyPair.privateKey;
-                  pk = pk? pk : keyPair.publicKey;
+                  sk = sk? sk : keyPair.sk || keyPair.privateKey;
+                  pk = pk? pk : keyPair.pk || keyPair.publicKey;
             }
 
             return {cname, sk, pk};
@@ -350,7 +354,7 @@ let ecKeyUtils = (() => {
 
       return {
             generateDer: (arg1, arg2) => {
-                  let {cname, sk, pk} = parseParams(arg1, arg2);
+                  let {cname, sk, pk} = parseArgs(arg1, arg2);
                   if (!cname)
                         throw Error('Curve name is not optional');
                   let crve = curveToOid[cname];
@@ -383,7 +387,7 @@ let ecKeyUtils = (() => {
 
 
             generatePem: (arg1, arg2) => {
-                  let {cname, sk, pk} = parseParams(arg1, arg2);
+                  let {cname, sk, pk} = parseArgs(arg1, arg2);
                   if (!cname)
                         throw Error('Curve name is not optional');
                   let crve = curveToOid[cname];
@@ -424,7 +428,7 @@ let ecKeyUtils = (() => {
             },
 
             generateJwk: (arg1, arg2) => {
-                  let {cname, sk, pk} = parseParams(arg1, arg2);
+                  let {cname, sk, pk} = parseArgs(arg1, arg2);
                   let ansiName = oidedToAnsi[cname];
                   if (!ansiName)
                         throw Error("JWK doesn't support curves outside of P-256/384/521");
