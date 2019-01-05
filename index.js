@@ -182,7 +182,7 @@ let ecKeyUtils = (() => {
       }
 
       function encodeDerToPem(tag, der) {
-            return `-----BEGIN ${tag}-----\n${der.toString('base64').replace(/.{64}/g, v => v + '\n').replace(/\n$/g, '')}\n-----END ${tag}-----`;
+            return `-----BEGIN ${tag}-----\n${der.toString('base64').replace(/.{64}/g, '$&\n').replace(/\n$/g, '')}\n-----END ${tag}-----`;
       }
 
       function encodeSkToDer(crve, sk, pk) {
@@ -331,7 +331,7 @@ let ecKeyUtils = (() => {
             let cname = cnOrAio;
             let sk = null, pk = null;                  
             if (typeof cnOrAio == 'object') {
-                  cname = cnOrAio.curve || cnOrAio.curveName;
+                  cname = cnOrAio.crv || cnOrAio.curve || cnOrAio.curveName;
                   sk = cnOrAio.sk || cnOrAio.privateKey;
                   pk = cnOrAio.pk || cnOrAio.publicKey;
             }
