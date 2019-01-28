@@ -185,6 +185,10 @@ let ecKeyUtils = (() => {
             return `-----BEGIN ${tag}-----\n${der.toString('base64').replace(/.{64}/g, '$&\n').replace(/\n$/g, '')}\n-----END ${tag}-----`;
       }
 
+      function encodeBuf(buf) {
+            return Buffer.concat([encodeLength(buf.length), buf]);
+      }
+
       function encodeSkToDer(crve, sk, pk) {
             // Generate ECPrivateKey @ rfc5915 with simple Buffer concatenation
             /*
@@ -196,20 +200,20 @@ let ecKeyUtils = (() => {
             }
             */
             // privateKey     OCTET STRING,
-            let ske = Buffer.concat([Buffer.from([0x04]), encodeLength(sk.length), sk]);        // tag of OCTET STRING
+            let ske = Buffer.concat([Buffer.from([0x04]), encodeBuf(sk)]);          // tag of OCTET STRING
             // parameters [0] ECParameters {{ NamedCurve }} OPTIONAL
-            let ecpe = Buffer.concat([Buffer.from([0xa0]), encodeLength(crve.length), crve]);       // tag of [0]
+            let ecpe = Buffer.concat([Buffer.from([0xa0]), encodeBuf(crve)]);       // tag of [0]
             // publicKey  [1] BIT STRING OPTIONAL
             let pke = Buffer.from([]);
             if (pk) {
-                  pke = Buffer.concat([Buffer.from([0x00]), pk]);                               // 0 bit(s) unused
-                  pke = Buffer.concat([Buffer.from([0x03]), encodeLength(pke.length), pke]);    // tag of BIT STRING
-                  pke = Buffer.concat([Buffer.from([0xa1]), encodeLength(pke.length), pke]);    // tag of [1]
+                  pke = Buffer.concat([Buffer.from([0x00]), pk]);                   // 0 bit(s) unused
+                  pke = Buffer.concat([Buffer.from([0x03]), encodeBuf(pke)]);       // tag of BIT STRING
+                  pke = Buffer.concat([Buffer.from([0xa1]), encodeBuf(pke)]);       // tag of [1]
             }
             
             // version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1)
-            let seqe = Buffer.concat([Buffer.from('020101', 'hex'), ske, ecpe, pke]);        // version: tag of INTEGER | length = 1 | value = 1
-            seqe = Buffer.concat([Buffer.from([0x30]), encodeLength(seqe.length), seqe]);       // tag of SEQUENCE
+            let seqe = Buffer.concat([Buffer.from('020101', 'hex'), ske, ecpe, pke]);     // version: tag of INTEGER | length = 1 | value = 1
+            seqe = Buffer.concat([Buffer.from([0x30]), encodeBuf(seqe)]);           // tag of SEQUENCE
 
             return seqe;
       }
@@ -239,13 +243,14 @@ let ecKeyUtils = (() => {
                         -----specifiedCurve  SpecifiedECDomain
                   }
             */ 
-            let alge = Buffer.concat([Buffer.from([0x30]), encodeLength(id_ecPublicKey.length + crve.length), id_ecPublicKey, crve]);   // tag of SEQUENCE
+            let alge = Buffer.concat([Buffer.from([0x30]), encodeBuf(Buffer.concat([id_ecPublicKey, crve]))]);    // tag of SEQUENCE
+            // encodeLength(id_ecPublicKey.length + crve.length), id_ecPublicKey, crve]);   
             // subjectPublicKey  BIT STRING
             
-            let pke = Buffer.concat([Buffer.from([0x00]), pk]);                                                   // 0 bit(s) unused
-            pke = Buffer.concat([Buffer.from([0x03]), encodeLength(pke.length), pke]);                            // tag of BIT STRING
+            let pke = Buffer.concat([Buffer.from([0x00]), pk]);                                       // 0 bit(s) unused
+            pke = Buffer.concat([Buffer.from([0x03]), encodeBuf(pke)]);                               // tag of BIT STRING
 
-            return Buffer.concat([Buffer.from([0x30]), encodeLength(alge.length + pke.length), alge, pke]);       // tag of SEQUENCE
+            return Buffer.concat([Buffer.from([0x30]), encodeBuf(Buffer.concat([alge, pke]))]);       // tag of SEQUENCE
       }
 
       function encodePkToPem(crve, pk) {
