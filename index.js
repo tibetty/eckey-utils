@@ -144,6 +144,11 @@ let ecKeyUtils = (() => {
             return [l, s];
       }
 
+      function encodeBuf(buf) {
+            return Buffer.concat([encodeLength(buf.length), buf]);
+      }
+
+
       function encodeOid(oid) {
             if (!/^[012]{1}\.\d{1,2}(\.\d+)+$/g.test(oid))
                   throw Error('Invalid Object Identifier');
@@ -163,7 +168,7 @@ let ecKeyUtils = (() => {
             }
 
             // Add tag of OBJECT IDENTIFIER & length
-            return Buffer.concat([Buffer.from([0x06]), encodeLength(ba.length), Buffer.from(ba)]);
+            return Buffer.concat([Buffer.from([0x06]), encodeBuf(Buffer.from(ba))]);
       }
 
       function decodeOid(buf, s, l) {
@@ -183,10 +188,6 @@ let ecKeyUtils = (() => {
 
       function encodeDerToPem(tag, der) {
             return `-----BEGIN ${tag}-----\n${der.toString('base64').replace(/.{64}/g, '$&\n').replace(/\n$/g, '')}\n-----END ${tag}-----`;
-      }
-
-      function encodeBuf(buf) {
-            return Buffer.concat([encodeLength(buf.length), buf]);
       }
 
       function encodeSkToDer(crve, sk, pk) {
