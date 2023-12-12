@@ -424,10 +424,10 @@ let ecKeyUtils = (() => {
 
                   let s = null;
                   // DER encoding of ECPrivateKey
-                  if (s = /^\-\-\-\-\-BEGIN EC PRIVATE KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END EC PRIVATE KEY\-\-\-\-\-$/g.exec(pemContent))
+                  if (s = /^\-\-\-\-\-BEGIN EC PRIVATE KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END EC PRIVATE KEY\-\-\-\-\-\s*$/g.exec(pemContent))
                         return parseDer$Ecsk(Buffer.from(s[1], 'base64'));
                   // DER encoding of SubjectPublicKeyInfo
-                  else if (s = /^\-\-\-\-\-BEGIN PUBLIC KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END PUBLIC KEY\-\-\-\-\-$/g.exec(pemContent))
+                  else if (s = /^\-\-\-\-\-BEGIN PUBLIC KEY\-\-\-\-\-\n([^]+)\n\-\-\-\-\-END PUBLIC KEY\-\-\-\-\-\s*$/g.exec(pemContent))
                         return parseDer$Spki(Buffer.from(s[1], 'base64'));
                   else
                         throw Error('Invalid or unsupported PEM content');
