@@ -79,13 +79,14 @@ generatePem('prime256v1', { sk, pk }); // { privateKey: '-----BEGIN EC PRIVATE K
 generatePem({ curveName: 'prime256v1', privateKey: sk }); // { privateKey: '…' }
 generateDer('prime256v1', { pk }); // { publicKey: <Buffer 30 59 …> }
 generatePem('prime256v1', { sk, pk }, { type: 'pkcs8' }); // { privateKey: '-----BEGIN PRIVATE KEY-----…' }
+generatePem('prime256v1', { sk, pk }, { passphrase }); // encrypted, OpenSSL PBES2 defaults
 ```
 
-| Argument  | Meaning                                                                |
-| --------- | ---------------------------------------------------------------------- |
-| `input`   | A curve name, or an object carrying the curve name and the keys        |
-| `keys`    | Optional key material, used only for keys missing from `input`         |
-| `options` | `{ type: 'sec1' \| 'pkcs8' }` — private key encoding, default `'sec1'` |
+| Argument  | Meaning                                                         |
+| --------- | --------------------------------------------------------------- |
+| `input`   | A curve name, or an object carrying the curve name and the keys |
+| `keys`    | Optional key material, used only for keys missing from `input`  |
+| `options` | `{ type, passphrase, cipher }` — see below                      |
 
 A compressed public point (`02 || x` or `03 || x`, SEC 1 v2 section 2.3.3) is accepted wherever a
 public key is accepted and expanded to `04 || x || y` on the way out, so everything this library
@@ -128,11 +129,22 @@ parseSkDer(encryptedDer, { passphrase }); // PKCS#8 EncryptedPrivateKeyInfo
 The passphrase goes straight to OpenSSL through `node:crypto`; this library implements no part of
 PBES2. Without a passphrase an encrypted key fails with `Encrypted PEM requires a passphrase`, and
 with a `passphrase` on unencrypted input the option is simply ignored, so one code path can read
-both. Encrypted **output** is not provided — export it with Node:
+both.
+
+Encrypted **output** follows OpenSSL's own parameters, so it is interchangeable with
+`openssl pkcs8 -topk8 -v2 aes-256-cbc`:
 
 ```ts
-keyObject.export({ format: 'pem', type: 'pkcs8', cipher: 'aes-256-cbc', passphrase });
+generatePem('prime256v1', { sk, pk }, { passphrase }); // PKCS#8 PBES2, aes-256-cbc
+generatePem('prime256v1', { sk, pk }, { passphrase, cipher: 'aes-128-cbc' });
+generatePem('prime256v1', { sk, pk }, { type: 'sec1', passphrase }); // legacy Proc-Type container
+generateDer('prime256v1', { sk, pk }, { passphrase }); // EncryptedPrivateKeyInfo
 ```
+
+Passing `passphrase` implies `type: 'pkcs8'`; ask for `type: 'sec1'` only if you need the legacy
+container, which OpenSSL still writes for `openssl ec -aes256` but which uses the weaker
+`EVP_BytesToKey` derivation. Encrypted DER is PKCS#8 only — OpenSSL cannot write SEC1 DER encrypted.
+`cipher` without `passphrase` is an error rather than a silently ignored option.
 
 ### `parseSkDer(der)` and `parsePkDer(der)`
 
@@ -195,8 +207,9 @@ and OpenSSL build you run.
   apply to you. The original motivation for this library was convenience, not key separation.
 - **PEM is EC only.** `Ed25519` and `Ed448` keys are supported as JWK, but a PKCS#8 PEM for them is
   rejected (`Not an EC private key`), because their PEM containers hold no EC parameters.
-- **Encrypted keys are read, not written.** `parsePem` / `parseSkDer` take `{ passphrase }`; to
-  produce an encrypted file, export it with Node (`keyObject.export({ cipher, passphrase })`).
+- **Encrypted SEC1 output is legacy.** `{ passphrase }` alone writes PKCS#8 (PBES2, PBKDF2 with
+  2048 iterations and hmacWithSHA256); `{ type: 'sec1', passphrase }` writes the older
+  `Proc-Type: 4,ENCRYPTED` container, which derives its key with `EVP_BytesToKey`. Prefer PKCS#8.
   `RSA PRIVATE KEY` blocks and certificates are rejected by name.
 
 - **Size is checked, membership is not.** Key length is validated against the curve, but two curves

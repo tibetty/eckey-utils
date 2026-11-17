@@ -9,6 +9,7 @@ import {
     decodeAnyPrivateKeyDer,
     decodePkcs8Der,
     decryptPrivateKey,
+    encryptPrivateKey,
     decodePrivateKeyDer,
     decodePublicKeyDer,
     encodePkcs8Der,
@@ -85,6 +86,18 @@ export interface GenerateOptions {
      * `pkcs8` (RFC 5958, `PRIVATE KEY`). Public keys are unaffected.
      */
     type?: 'sec1' | 'pkcs8' | undefined;
+    /**
+     * Encrypt the private key with this passphrase, `string` or `Buffer`.
+     *
+     * Implies `type: 'pkcs8'` (PBES2) unless `sec1` is asked for explicitly,
+     * which produces the legacy `Proc-Type: 4,ENCRYPTED` container.
+     */
+    passphrase?: string | Buffer | undefined;
+    /**
+     * Cipher used with `passphrase`, default `aes-256-cbc` — OpenSSL's own
+     * default for PBES2, so the output matches `openssl pkcs8 -topk8 -v2`.
+     */
+    cipher?: string | undefined;
 }
 
 /** DER encoded key pair; a member is present only if it was requested. */
@@ -101,12 +114,28 @@ export interface PemKeyPair {
 
 const RAW_KEY_TYPE_ERROR = 'Only supports raw keys in Buffer';
 
-function resolveKeyType(options?: GenerateOptions): 'sec1' | 'pkcs8' {
-    const type = options?.type ?? 'sec1';
+interface PrivateKeyEncoding {
+    type: 'sec1' | 'pkcs8';
+    /** Present only when the private key is to be encrypted. */
+    encryption?: { passphrase: string | Buffer; cipher: string };
+}
+
+/** Resolve how a private key should be written, and whether it is encrypted. */
+function resolveKeyEncoding(options?: GenerateOptions): PrivateKeyEncoding {
+    const type = options?.type ?? (options?.passphrase === undefined ? 'sec1' : 'pkcs8');
     if (type !== 'sec1' && type !== 'pkcs8') {
         throw new Error(`Unsupported private key type: ${String(type)}`);
     }
-    return type;
+    if (options?.cipher !== undefined && options?.passphrase === undefined) {
+        throw new Error('A passphrase is required to use a cipher');
+    }
+    if (options?.passphrase === undefined) {
+        return { type };
+    }
+    return {
+        type,
+        encryption: { passphrase: options.passphrase, cipher: options.cipher ?? 'aes-256-cbc' },
+    };
 }
 
 interface NormalizedArgs {
@@ -196,7 +225,9 @@ function resolveArgs(normalized: NormalizedArgs): {
 /**
  * Encode raw keys as DER.
  *
- * Pass `{ type: 'pkcs8' }` as the third argument for PKCS#8 private keys.
+ * Pass `{ type: 'pkcs8' }` as the third argument for PKCS#8 private keys, and
+ * `{ passphrase }` to encrypt them (PKCS#8 only, as OpenSSL cannot write
+ * encrypted SEC1 DER).
  *
  * @example
  * ```ts
@@ -214,13 +245,19 @@ export function generateDer(
     options?: GenerateOptions
 ): DerKeyPair {
     const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
-    const type = resolveKeyType(options);
+    const { type, encryption } = resolveKeyEncoding(options);
     const result: DerKeyPair = {};
     if (privateKey) {
-        result.privateKey =
+        if (encryption && type === 'sec1') {
+            throw new Error("Encrypted DER is PKCS#8 only: use { type: 'pkcs8' }");
+        }
+        const der =
             type === 'pkcs8'
                 ? encodePkcs8Der(curveName, privateKey, publicKey)
                 : encodePrivateKeyDer(curveName, privateKey, publicKey);
+        result.privateKey = encryption
+            ? (encryptPrivateKey(der, { container: type, format: 'der', ...encryption }) as Buffer)
+            : der;
     }
     if (publicKey) {
         result.publicKey = encodePublicKeyDer(curveName, publicKey);
@@ -232,7 +269,8 @@ export function generateDer(
  * Encode raw keys as PEM, ready for `crypto.sign()` / `crypto.verify()`.
  *
  * Pass `{ type: 'pkcs8' }` as the third argument to write PKCS#8 private keys
- * instead of RFC 5915 ones.
+ * instead of RFC 5915 ones, and `{ passphrase }` to encrypt the private key
+ * with OpenSSL's PBES2 defaults (PKCS#8 unless `type: 'sec1'` is explicit).
  *
  * @example
  * ```ts
@@ -248,15 +286,16 @@ export function generatePem(
     options?: GenerateOptions
 ): PemKeyPair {
     const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
-    const type = resolveKeyType(options);
+    const { type, encryption } = resolveKeyEncoding(options);
     const result: PemKeyPair = {};
     if (privateKey) {
-        const tag = type === 'pkcs8' ? PEM_LABELS.pkcs8 : PEM_LABELS.privateKey;
         const der =
             type === 'pkcs8'
                 ? encodePkcs8Der(curveName, privateKey, publicKey)
                 : encodePrivateKeyDer(curveName, privateKey, publicKey);
-        result.privateKey = toPem(tag, der);
+        result.privateKey = encryption
+            ? (encryptPrivateKey(der, { container: type, format: 'pem', ...encryption }) as string)
+            : toPem(type === 'pkcs8' ? PEM_LABELS.pkcs8 : PEM_LABELS.privateKey, der);
     }
     if (publicKey) {
         result.publicKey = toPem(PEM_LABELS.publicKey, encodePublicKeyDer(curveName, publicKey));
