@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- OKP JWK support (RFC 8037) for `Ed25519` and `Ed448`: `generateJwk('Ed25519', { sk, pk })` and
+  `parseJwk({ kty: 'OKP', … })`, with `OKP_CURVES` describing the two curves. Output is accepted by
+  `crypto.createPrivateKey({ format: 'jwk' })` and signs through `crypto.sign(null, …)`. PEM remains
+  EC only.
 - Compressed public points (SEC 1 v2 section 2.3.3) are accepted by every function that takes key
   material, and expanded to `04 || x || y`. This unblocks JWK generation from compressed points, which
   previously threw `Only uncompressed public keys are supported`. Decompression uses OpenSSL through

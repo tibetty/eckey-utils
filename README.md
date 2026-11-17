@@ -15,7 +15,8 @@ into raw keys.
 - No runtime dependencies: nothing beyond `Buffer` and `node:crypto`.
 - ESM and CommonJS builds with bundled TypeScript types.
 - 79 named curves: NIST, SEC 2 prime and binary, Brainpool, ANSI X9.62 and WAP WSG.
-- JWK support for P-256, P-384, P-521 and secp256k1.
+- JWK support for the EC curves with a registered `crv` value (P-256, P-384, P-521, secp256k1),
+  plus OKP keys for Ed25519 and Ed448.
 - Compressed public points (`02 || x` / `03 || x`) accepted anywhere a key is read; output is always
   uncompressed.
 - Key length checked against the curve, so a key from the wrong curve fails where it happens.
@@ -161,6 +162,9 @@ its coordinate size in bytes.
 | ANSI X9.62 binary    | `c2pnb163v1`, `c2tnb431r1`            |
 | WAP WSG (RFC 2409)   | `wap-wsg-idm-ecid-wtls12`             |
 
+OKP curves are not EC curves and are not in that list: `OKP_CURVES` covers `Ed25519` and `Ed448`,
+which are available for JWK only.
+
 Not every curve is usable for signing: which curves OpenSSL accepts for ECDSA depends on the Node
 and OpenSSL build you run.
 
@@ -168,6 +172,8 @@ and OpenSSL build you run.
 
 - **Do not reuse one key pair for both ECDH and ECDSA** unless you are certain the risk does not
   apply to you. The original motivation for this library was convenience, not key separation.
+- **PEM is EC only.** `Ed25519` and `Ed448` keys are supported as JWK, but a PKCS#8 PEM for them is
+  rejected (`Not an EC private key`), because their PEM containers hold no EC parameters.
 - **Encrypted and PKCS#1 PEM blocks are not handled.** Encrypted keys, `RSA PRIVATE KEY` blocks and
   certificates are rejected by name. Decrypt or convert them with Node first, for example
   `createPrivateKey(pkcs8Pem).export({ format: 'pem', type: 'sec1' })`.

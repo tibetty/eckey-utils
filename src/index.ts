@@ -19,11 +19,22 @@ import {
   type KeyInfo,
 } from './der.js';
 import { CURVE_KEY_BYTES, resolveCurveName, type CurveName } from './curves.js';
+import {
+  decodeOkpJwk,
+  encodeOkpJwk,
+  isOkpCurveName,
+  type OkpCurveName,
+  type OkpJsonWebKey,
+  type OkpKeyInfo,
+  type OkpKeyPair,
+} from './okp.js';
 import { decodeJwk, encodeJwk, type EcJsonWebKey, type JwkKeyPair } from './jwk.js';
 
 export type { CurveName, AnsiCurveName } from './curves.js';
 export type { KeyInfo } from './der.js';
 export type { EcJsonWebKey, JwkKeyPair } from './jwk.js';
+export type { OkpCurveName, OkpJsonWebKey, OkpKeyInfo, OkpKeyPair } from './okp.js';
+export { OKP_CURVES } from './okp.js';
 export { CURVE_NAMES, CURVE_OIDS, CURVE_KEY_BYTES, ANSI_CURVES } from './curves.js';
 
 /** Raw key material. `sk`/`pk` are the short aliases of `privateKey`/`publicKey`. */
@@ -136,23 +147,25 @@ function checkKeyLengths(curveName: CurveName, privateKey?: Buffer, publicKey?: 
   }
 }
 
-/** Validate the curve name and key material shared by every generate function. */
-function resolveArgs(
-  input: GenerateInput,
-  keys?: RawKeyMaterial
-): {
-  curveName: CurveName;
-  privateKey: Buffer | undefined;
-  publicKey: Buffer | undefined;
-} {
-  const { curve, privateKey, publicKey } = normalizeArgs(input, keys);
-  const curveName = resolveCurveName(curve);
+/** Require at least one key, and require both to be `Buffer`s. */
+function assertRawKeys(privateKey: Buffer | undefined, publicKey: Buffer | undefined): void {
   if (!privateKey && !publicKey) {
     throw new Error('Either privateKey or publicKey is required');
   }
   if ((privateKey && !Buffer.isBuffer(privateKey)) || (publicKey && !Buffer.isBuffer(publicKey))) {
     throw new Error(RAW_KEY_TYPE_ERROR);
   }
+}
+
+/** Validate the curve name and key material shared by the EC generate functions. */
+function resolveArgs(normalized: NormalizedArgs): {
+  curveName: CurveName;
+  privateKey: Buffer | undefined;
+  publicKey: Buffer | undefined;
+} {
+  const { curve, privateKey, publicKey } = normalized;
+  const curveName = resolveCurveName(curve);
+  assertRawKeys(privateKey, publicKey);
   checkKeyLengths(curveName, privateKey, publicKey);
   return { curveName, privateKey, publicKey };
 }
@@ -177,7 +190,7 @@ export function generateDer(
   keys?: RawKeyMaterial,
   options?: GenerateOptions
 ): DerKeyPair {
-  const { curveName, privateKey, publicKey } = resolveArgs(input, keys);
+  const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
   const type = resolveKeyType(options);
   const result: DerKeyPair = {};
   if (privateKey) {
@@ -211,7 +224,7 @@ export function generatePem(
   keys?: RawKeyMaterial,
   options?: GenerateOptions
 ): PemKeyPair {
-  const { curveName, privateKey, publicKey } = resolveArgs(input, keys);
+  const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
   const type = resolveKeyType(options);
   const result: PemKeyPair = {};
   if (privateKey) {
@@ -270,17 +283,32 @@ export function parsePem(pem: string): KeyInfo {
 /**
  * Build JWKs from raw keys.
  *
- * Supported curves are P-256, P-384, P-521 and secp256k1. A private JWK needs
- * the raw public key as well, since RFC 7518 requires `x` and `y` next to `d`.
+ * EC curves produce RFC 7518 keys (`P-256`, `P-384`, `P-521`) and RFC 8812 keys
+ * (`secp256k1`) with `x`, `y` and `d`; `Ed25519` and `Ed448` produce RFC 8037
+ * OKP keys with `x` and `d`. A private JWK needs the raw public key as well,
+ * because both standards require the public half next to `d`.
  */
-export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair {
-  const { curveName, privateKey, publicKey } = resolveArgs(input, keys);
+export function generateJwk(curve: OkpCurveName, keys?: RawKeyMaterial): OkpKeyPair;
+export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair;
+export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair | OkpKeyPair {
+  const normalized = normalizeArgs(input, keys);
+  if (isOkpCurveName(normalized.curve)) {
+    assertRawKeys(normalized.privateKey, normalized.publicKey);
+    return encodeOkpJwk(normalized.curve, normalized.privateKey, normalized.publicKey);
+  }
+  const { curveName, privateKey, publicKey } = resolveArgs(normalized);
   return encodeJwk(curveName, privateKey, publicKey);
 }
 
-/** Rebuild raw key material from an EC JWK. */
-export function parseJwk(jwk: EcJsonWebKey): KeyInfo {
-  return decodeJwk(jwk);
+/**
+ * Rebuild raw key material from a JWK.
+ *
+ * Accepts EC keys (`kty: "EC"`) and OKP keys (`kty: "OKP"`, Ed25519/Ed448).
+ */
+export function parseJwk(jwk: OkpJsonWebKey): OkpKeyInfo;
+export function parseJwk(jwk: EcJsonWebKey): KeyInfo;
+export function parseJwk(jwk: EcJsonWebKey | OkpJsonWebKey): KeyInfo | OkpKeyInfo {
+  return jwk && jwk.kty === 'OKP' ? decodeOkpJwk(jwk) : decodeJwk(jwk as EcJsonWebKey);
 }
 
 /**
