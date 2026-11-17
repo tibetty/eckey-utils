@@ -102,11 +102,16 @@ export const CURVE_OIDS = {
 /** A curve name accepted by this library. */
 export type CurveName = keyof typeof CURVE_OIDS;
 
-/** Curves that can be represented as a JWK (`crv` value to curve name). */
+/**
+ * Curves that can be represented as a JWK (`crv` value to curve name).
+ *
+ * P-256/384/521 are registered by RFC 7518, secp256k1 by RFC 8812.
+ */
 export const ANSI_CURVES = {
   'P-256': 'prime256v1',
   'P-384': 'secp384r1',
   'P-521': 'secp521r1',
+  secp256k1: 'secp256k1',
 } as const;
 
 /** The JWK `crv` value of a curve supported by {@link ANSI_CURVES}. */

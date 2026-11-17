@@ -1,8 +1,8 @@
 /**
  * JWK (RFC 7517 / RFC 7518) encoding of EC keys.
  *
- * Only the curves Node exposes as `P-256`, `P-384` and `P-521` are covered,
- * because those are the ones RFC 7518 registers for JWK use.
+ * Covers the curves with a registered JWK `crv` value: `P-256`, `P-384` and
+ * `P-521` (RFC 7518) plus `secp256k1` (RFC 8812).
  */
 import { ANSI_CURVES, CURVE_TO_ANSI, type AnsiCurveName, type CurveName } from './curves.js';
 import type { KeyInfo } from './der.js';
@@ -25,7 +25,8 @@ export interface JwkKeyPair {
   publicKey?: EcJsonWebKey | undefined;
 }
 
-const JWK_CURVE_ERROR = 'JWK supports only P-256, P-384 and P-521';
+const JWK_CURVES = Object.keys(ANSI_CURVES).join(', ');
+const JWK_CURVE_ERROR = `JWK supports only ${JWK_CURVES}`;
 
 function base64UrlEncode(buf: Buffer): string {
   return buf.toString('base64').replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_');

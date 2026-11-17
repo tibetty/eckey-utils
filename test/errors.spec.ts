@@ -204,9 +204,9 @@ describe('PEM validation', () => {
 });
 
 describe('JWK validation', () => {
-  it('rejects curves outside P-256/384/521', () => {
-    expect(() => generateJwk('secp256k1', { sk, pk })).toThrow(
-      'JWK supports only P-256, P-384 and P-521'
+  it('rejects curves without a registered JWK crv value', () => {
+    expect(() => generateJwk('brainpoolP256r1', { sk, pk })).toThrow(
+      'JWK supports only P-256, P-384, P-521, secp256k1'
     );
   });
 
@@ -231,9 +231,9 @@ describe('JWK validation', () => {
   });
 
   it('rejects an unsupported JWK curve', () => {
-    expect(() =>
-      parseJwk({ kty: 'EC', crv: 'secp256k1', x: 'a', y: 'b' } as unknown as never)
-    ).toThrow('JWK supports only P-256, P-384 and P-521');
+    expect(() => parseJwk({ kty: 'EC', crv: 'P-192', x: 'a', y: 'b' } as unknown as never)).toThrow(
+      'JWK supports only P-256, P-384, P-521, secp256k1'
+    );
   });
 
   it('requires x and y', () => {
