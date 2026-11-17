@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file. The format foll
 ## [1.0.0] - 2026-11-17
 
 This release rewrites the package in TypeScript and fixes a set of input-handling bugs. Existing
-code that calls the six public functions keeps working unchanged; the default export shape, the
+code that calls the seven public functions keeps working unchanged; the default export shape, the
 flexible argument forms and the PEM/DER/JWK output bytes are preserved. The one exception is the
 JWK input handling noted under "Changed".
 
