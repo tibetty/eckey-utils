@@ -6,8 +6,11 @@
  * and parse key material back out of the encodings.
  */
 import {
+  decodeAnyPrivateKeyDer,
+  decodePkcs8Der,
   decodePrivateKeyDer,
   decodePublicKeyDer,
+  encodePkcs8Der,
   encodePrivateKeyDer,
   encodePublicKeyDer,
   fromPem,
@@ -51,6 +54,15 @@ export interface CurveAliases {
  */
 export type GenerateInput = string | (CurveAliases & RawKeyMaterial);
 
+/** How private keys are encoded by the generate functions. */
+export interface GenerateOptions {
+  /**
+   * Private key encoding: `sec1` (RFC 5915, `EC PRIVATE KEY`, the default) or
+   * `pkcs8` (RFC 5958, `PRIVATE KEY`). Public keys are unaffected.
+   */
+  type?: 'sec1' | 'pkcs8' | undefined;
+}
+
 /** DER encoded key pair; a member is present only if it was requested. */
 export interface DerKeyPair {
   privateKey?: Buffer | undefined;
@@ -64,6 +76,14 @@ export interface PemKeyPair {
 }
 
 const RAW_KEY_TYPE_ERROR = 'Only supports raw keys in Buffer';
+
+function resolveKeyType(options?: GenerateOptions): 'sec1' | 'pkcs8' {
+  const type = options?.type ?? 'sec1';
+  if (type !== 'sec1' && type !== 'pkcs8') {
+    throw new Error(`Unsupported private key type: ${String(type)}`);
+  }
+  return type;
+}
 
 interface NormalizedArgs {
   curve: unknown;
@@ -104,6 +124,8 @@ function resolveArgs(
 /**
  * Encode raw keys as DER.
  *
+ * Pass `{ type: 'pkcs8' }` as the third argument for PKCS#8 private keys.
+ *
  * @example
  * ```ts
  * const ecdh = crypto.createECDH('prime256v1');
@@ -114,11 +136,19 @@ function resolveArgs(
  * });
  * ```
  */
-export function generateDer(input: GenerateInput, keys?: RawKeyMaterial): DerKeyPair {
+export function generateDer(
+  input: GenerateInput,
+  keys?: RawKeyMaterial,
+  options?: GenerateOptions
+): DerKeyPair {
   const { curveName, privateKey, publicKey } = resolveArgs(input, keys);
+  const type = resolveKeyType(options);
   const result: DerKeyPair = {};
   if (privateKey) {
-    result.privateKey = encodePrivateKeyDer(curveName, privateKey, publicKey);
+    result.privateKey =
+      type === 'pkcs8'
+        ? encodePkcs8Der(curveName, privateKey, publicKey)
+        : encodePrivateKeyDer(curveName, privateKey, publicKey);
   }
   if (publicKey) {
     result.publicKey = encodePublicKeyDer(curveName, publicKey);
@@ -129,6 +159,9 @@ export function generateDer(input: GenerateInput, keys?: RawKeyMaterial): DerKey
 /**
  * Encode raw keys as PEM, ready for `crypto.sign()` / `crypto.verify()`.
  *
+ * Pass `{ type: 'pkcs8' }` as the third argument to write PKCS#8 private keys
+ * instead of RFC 5915 ones.
+ *
  * @example
  * ```ts
  * const { privateKey, publicKey } = generatePem('prime256v1', {
@@ -137,14 +170,21 @@ export function generateDer(input: GenerateInput, keys?: RawKeyMaterial): DerKey
  * });
  * ```
  */
-export function generatePem(input: GenerateInput, keys?: RawKeyMaterial): PemKeyPair {
+export function generatePem(
+  input: GenerateInput,
+  keys?: RawKeyMaterial,
+  options?: GenerateOptions
+): PemKeyPair {
   const { curveName, privateKey, publicKey } = resolveArgs(input, keys);
+  const type = resolveKeyType(options);
   const result: PemKeyPair = {};
   if (privateKey) {
-    result.privateKey = toPem(
-      PEM_LABELS.privateKey,
-      encodePrivateKeyDer(curveName, privateKey, publicKey)
-    );
+    const tag = type === 'pkcs8' ? PEM_LABELS.pkcs8 : PEM_LABELS.privateKey;
+    const der =
+      type === 'pkcs8'
+        ? encodePkcs8Der(curveName, privateKey, publicKey)
+        : encodePrivateKeyDer(curveName, privateKey, publicKey);
+    result.privateKey = toPem(tag, der);
   }
   if (publicKey) {
     result.publicKey = toPem(PEM_LABELS.publicKey, encodePublicKeyDer(curveName, publicKey));
@@ -152,9 +192,12 @@ export function generatePem(input: GenerateInput, keys?: RawKeyMaterial): PemKey
   return result;
 }
 
-/** Parse an `ECPrivateKey` (RFC 5915) DER buffer. */
+/**
+ * Parse a private key DER buffer: `ECPrivateKey` (RFC 5915) or PKCS#8
+ * `PrivateKeyInfo` (RFC 5958). The two are told apart by their version number.
+ */
 export function parseSkDer(der: Buffer): KeyInfo {
-  return decodePrivateKeyDer(der);
+  return decodeAnyPrivateKeyDer(der);
 }
 
 /** Parse a `SubjectPublicKeyInfo` (RFC 5480) DER buffer. */
@@ -165,8 +208,9 @@ export function parsePkDer(der: Buffer): KeyInfo {
 /**
  * Parse key material from a PEM block.
  *
- * Handles `EC PRIVATE KEY` (RFC 5915) and `PUBLIC KEY` (RFC 5480) blocks, with
- * LF or CRLF line endings, and returns the curve name plus raw keys.
+ * Handles `EC PRIVATE KEY` (RFC 5915), `PRIVATE KEY` (PKCS#8, RFC 5958) and
+ * `PUBLIC KEY` (RFC 5480) blocks, with LF or CRLF line endings, and returns the
+ * curve name plus raw keys.
  */
 export function parsePem(pem: string): KeyInfo {
   if (!pem) {
@@ -176,11 +220,14 @@ export function parsePem(pem: string): KeyInfo {
   if (tag === PEM_LABELS.privateKey) {
     return decodePrivateKeyDer(der);
   }
+  if (tag === PEM_LABELS.pkcs8) {
+    return decodePkcs8Der(der);
+  }
   if (tag === PEM_LABELS.publicKey) {
     return decodePublicKeyDer(der);
   }
   throw new Error(
-    `Unsupported PEM label "${tag}": expected "${PEM_LABELS.privateKey}" or "${PEM_LABELS.publicKey}"`
+    `Unsupported PEM label "${tag}": expected "${PEM_LABELS.privateKey}", "${PEM_LABELS.pkcs8}" or "${PEM_LABELS.publicKey}"`
   );
 }
 

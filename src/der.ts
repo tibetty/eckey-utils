@@ -2,6 +2,7 @@
  * DER and PEM encoding of EC keys:
  *
  * - `ECPrivateKey` (RFC 5915), wrapped as `-----BEGIN EC PRIVATE KEY-----`.
+ * - `PrivateKeyInfo` (RFC 5958), wrapped as `-----BEGIN PRIVATE KEY-----`.
  * - `SubjectPublicKeyInfo` (RFC 5480), wrapped as `-----BEGIN PUBLIC KEY-----`.
  *
  * Only raw key material is handled here; keys are always encoded on a named
@@ -44,12 +45,21 @@ const TAG = {
 /**
  * Encode an `ECPrivateKey` (RFC 5915).
  *
- * @param curve  Curve the key belongs to.
- * @param sk     Raw private key.
- * @param pk     Raw public key, embedded when supplied.
+ * @param curve          Curve the key belongs to.
+ * @param sk             Raw private key.
+ * @param pk             Raw public key, embedded when supplied.
+ * @param withParameters Whether to include the `[0] namedCurve` element. PKCS#8
+ *                       omits it, because the outer algorithm carries the curve.
  */
-export function encodePrivateKeyDer(curve: CurveName, sk: Buffer, pk?: Buffer): Buffer {
-  const parameters = encodeTlv(TAG.context0, encodeOid(CURVE_OIDS[curve]));
+export function encodePrivateKeyDer(
+  curve: CurveName,
+  sk: Buffer,
+  pk?: Buffer,
+  withParameters = true
+): Buffer {
+  const parameters = withParameters
+    ? encodeTlv(TAG.context0, encodeOid(CURVE_OIDS[curve]))
+    : Buffer.alloc(0);
   const publicKey = pk ? encodeTlv(TAG.context1, encodeBitString(pk)) : Buffer.alloc(0);
   return encodeTlv(
     TAG.sequence,
@@ -58,6 +68,27 @@ export function encodePrivateKeyDer(curve: CurveName, sk: Buffer, pk?: Buffer): 
       encodeOctetString(sk),
       parameters,
       publicKey,
+    ])
+  );
+}
+
+/**
+ * Encode a PKCS#8 `PrivateKeyInfo` (RFC 5958) around an `ECPrivateKey`.
+ *
+ * OpenSSL omits the inner `[0] namedCurve` here, so this is not a plain
+ * re-wrap of {@link encodePrivateKeyDer}.
+ */
+export function encodePkcs8Der(curve: CurveName, sk: Buffer, pk?: Buffer): Buffer {
+  const algorithm = encodeTlv(
+    TAG.sequence,
+    Buffer.concat([ID_EC_PUBLIC_KEY, encodeOid(CURVE_OIDS[curve])])
+  );
+  return encodeTlv(
+    TAG.sequence,
+    Buffer.concat([
+      encodeSmallInteger(0), // PrivateKeyInfo version 0
+      algorithm,
+      encodeOctetString(encodePrivateKeyDer(curve, sk, pk, false)),
     ])
   );
 }
@@ -77,6 +108,7 @@ export function encodePublicKeyDer(curve: CurveName, pk: Buffer): Buffer {
 }
 
 const INVALID_PRIVATE_KEY = 'Invalid DER encoding of ECPrivateKey';
+const INVALID_PKCS8 = 'Invalid DER encoding of PrivateKeyInfo';
 const INVALID_PUBLIC_KEY = 'Invalid DER encoding of SubjectPublicKeyInfo';
 
 /** Read a TLV of the expected tag at `start`, or fail with `error`. */
@@ -117,13 +149,17 @@ function readCurveOid(
   return { curve };
 }
 
+interface Sec1Key {
+  privateKey: Buffer;
+  curveName?: CurveName | undefined;
+  publicKey?: Buffer | undefined;
+}
+
 /**
- * Decode an `ECPrivateKey` (RFC 5915) DER buffer.
- *
- * The public key is present only when the encoding embeds it.
+ * Read an `ECPrivateKey` structure, tolerating the missing `[0] namedCurve`
+ * that PKCS#8 uses.
  */
-export function decodePrivateKeyDer(buf: Buffer): KeyInfo {
-  const error = new Error(INVALID_PRIVATE_KEY);
+function parseSec1(buf: Buffer, error: Error): Sec1Key {
   const sequence = expectTlv(buf, 0, TAG.sequence, error);
   if (sequence.end !== buf.length) {
     throw error;
@@ -139,36 +175,146 @@ export function decodePrivateKeyDer(buf: Buffer): KeyInfo {
   const privateKey = expectTlv(buf, pos, TAG.octetString, error);
   pos = privateKey.end;
 
-  let curve: CurveName | undefined;
-  let publicKey: Buffer | undefined;
+  const result: Sec1Key = { privateKey: buf.subarray(privateKey.start, privateKey.end) };
   while (pos < sequence.end) {
     const tag = buf[pos];
     if (tag === TAG.context0) {
       const body = expectTlv(buf, pos, TAG.context0, error);
-      curve = readCurveOid(buf, body.start, body.end, error).curve;
+      result.curveName = readCurveOid(buf, body.start, body.end, error).curve;
       pos = body.end;
     } else if (tag === TAG.context1) {
-      const body = expectTlv(buf, pos, TAG.context1, error);
-      const bitString = expectTlv(buf, body.start, TAG.bitString, error);
-      // First content octet is the unused-bit count, always 0 for an EC point.
-      publicKey = buf.subarray(bitString.start + 1, bitString.end);
-      pos = body.end;
+      const bits = readBitString(buf, pos, error);
+      result.publicKey = bits.publicKey;
+      pos = bits.next;
+    } else {
+      throw error;
+    }
+  }
+  return result;
+}
+
+/** Read a `BIT STRING` wrapped in a `[1]` context tag, skipping unused bits. */
+function readBitString(
+  buf: Buffer,
+  start: number,
+  error: Error
+): { publicKey: Buffer; next: number } {
+  const body = expectTlv(buf, start, TAG.context1, error);
+  const bitString = expectTlv(buf, body.start, TAG.bitString, error);
+  // First content octet is the unused-bit count, always 0 for an EC point.
+  return { publicKey: buf.subarray(bitString.start + 1, bitString.end), next: body.end };
+}
+
+/**
+ * Decode an `ECPrivateKey` (RFC 5915) DER buffer.
+ *
+ * The public key is present only when the encoding embeds it.
+ */
+export function decodePrivateKeyDer(buf: Buffer): KeyInfo {
+  const parsed = parseSec1(buf, new Error(INVALID_PRIVATE_KEY));
+  if (!parsed.curveName) {
+    throw new Error('ECPrivateKey without named-curve parameters is not supported');
+  }
+  const info: KeyInfo = { curveName: parsed.curveName, privateKey: parsed.privateKey };
+  if (parsed.publicKey) {
+    info.publicKey = parsed.publicKey;
+  }
+  return info;
+}
+
+/**
+ * Decode a PKCS#8 `PrivateKeyInfo` (RFC 5958) or `OneAsymmetricKey` DER buffer.
+ *
+ * Throws if the buffer holds a non-EC key; the curve may come from either the
+ * algorithm identifier or the inner `ECPrivateKey`, and must not disagree.
+ */
+export function decodePkcs8Der(buf: Buffer): KeyInfo {
+  const error = new Error(INVALID_PKCS8);
+  const sequence = expectTlv(buf, 0, TAG.sequence, error);
+  if (sequence.end !== buf.length) {
+    throw error;
+  }
+
+  const version = expectTlv(buf, sequence.start, TAG.integer, error);
+  if (version.end - version.start !== 1 || buf[version.start] > 1) {
+    throw error;
+  }
+
+  const algorithm = expectTlv(buf, version.end, TAG.sequence, error);
+  const algorithmOid = expectTlv(buf, algorithm.start, TAG.oid, error);
+  const oid = decodeOid(buf, algorithmOid.start, algorithmOid.end - algorithmOid.start);
+  if (oid !== '1.2.840.10045.2.1') {
+    throw new Error(`Not an EC private key (algorithm OID: ${oid})`);
+  }
+  const { curve: outerCurve } = readCurveOid(buf, algorithmOid.end, algorithm.end, error);
+
+  const inner = expectTlv(buf, algorithm.end, TAG.octetString, error);
+  const parsed = parseSec1(buf.subarray(inner.start, inner.end), error);
+
+  // OneAsymmetricKey may carry attributes [0] and a public key [1] after the key.
+  let pos = inner.end;
+  let outerPublicKey: Buffer | undefined;
+  while (pos < sequence.end) {
+    if (buf[pos] === TAG.context0) {
+      pos = expectTlv(buf, pos, TAG.context0, error).end;
+    } else if (buf[pos] === TAG.context1) {
+      const parsedBits = readBitString(buf, pos, error);
+      outerPublicKey = parsedBits.publicKey;
+      pos = parsedBits.next;
     } else {
       throw error;
     }
   }
 
-  if (!curve) {
-    throw new Error('ECPrivateKey without named-curve parameters is not supported');
+  if (parsed.curveName && outerCurve && parsed.curveName !== outerCurve) {
+    throw new Error(
+      `Curve mismatch: PKCS#8 algorithm says ${outerCurve}, inner ECPrivateKey says ${parsed.curveName}`
+    );
   }
-  const info: KeyInfo = {
-    curveName: curve,
-    privateKey: buf.subarray(privateKey.start, privateKey.end),
-  };
+  const curveName = parsed.curveName ?? outerCurve;
+  const info: KeyInfo = { curveName, privateKey: parsed.privateKey };
+  const publicKey = parsed.publicKey ?? outerPublicKey;
   if (publicKey) {
     info.publicKey = publicKey;
   }
   return info;
+}
+
+/**
+ * Decode a private key DER buffer, either `ECPrivateKey` (RFC 5915) or
+ * PKCS#8 `PrivateKeyInfo` (RFC 5958), told apart by their version number.
+ */
+export function decodeAnyPrivateKeyDer(buf: Buffer): KeyInfo {
+  return isPkcs8(buf) ? decodePkcs8Der(buf) : decodePrivateKeyDer(buf);
+}
+
+/**
+ * Both structures start with a SEQUENCE, an INTEGER version, then either the
+ * algorithm SEQUENCE (PKCS#8) or the private key OCTET STRING (SEC1).
+ */
+function isPkcs8(buf: Buffer): boolean {
+  try {
+    const sequence = decodeTlv(buf, 0);
+    if (sequence.tag !== TAG.sequence) {
+      return false;
+    }
+    const version = decodeTlv(buf, sequence.start);
+    if (version.tag !== TAG.integer || version.end - version.start !== 1) {
+      return false;
+    }
+    const versionValue = buf[version.start];
+    if (versionValue > 1) {
+      return false;
+    }
+    try {
+      return decodeTlv(buf, version.end).tag === TAG.sequence;
+    } catch {
+      // Truncated: only PKCS#8 can start with version 0.
+      return versionValue === 0;
+    }
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -217,6 +363,9 @@ export function fromPem(pem: string): { tag: string; der: Buffer } {
   if (!match) {
     throw new Error('Invalid or unsupported PEM content');
   }
+  if (/^(Proc-Type|DEK-Info):/m.test(match[2])) {
+    throw new Error('Encrypted PEM is not supported');
+  }
   return { tag: match[1], der: Buffer.from(match[2], 'base64') };
 }
 
@@ -224,6 +373,8 @@ export function fromPem(pem: string): { tag: string; der: Buffer } {
 export const PEM_LABELS = {
   /** RFC 5915 `ECPrivateKey`. */
   privateKey: 'EC PRIVATE KEY',
+  /** RFC 5958 `PrivateKeyInfo`. */
+  pkcs8: 'PRIVATE KEY',
   /** RFC 5480 `SubjectPublicKeyInfo`. */
   publicKey: 'PUBLIC KEY',
 } as const;

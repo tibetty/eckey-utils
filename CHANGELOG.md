@@ -8,10 +8,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- PKCS#8 private keys (RFC 5958): `parsePem()` and `parseSkDer()` read `-----BEGIN PRIVATE KEY-----`
+  blocks and PKCS#8 DER, and `generatePem()` / `generateDer()` write them with a third argument,
+  `{ type: 'pkcs8' }`. Output is byte-identical to `KeyObject.export()` and to `openssl genpkey`;
+  `sec1` remains the default. PKCS#8 without an inner named curve, `OneAsymmetricKey` version 1 with
+  attributes, and a curve mismatch between the algorithm and the inner key are all handled.
+- Encrypted PEM (`Proc-Type: 4,ENCRYPTED`) is now rejected with `Encrypted PEM is not supported`
+  instead of failing later as undecodable content.
 - JWK support for `secp256k1` (RFC 8812 `crv` value) in `generateJwk()` and `parseJwk()`. The curve
   already worked for PEM and DER; only the JWK path was refused. Output is accepted by
   `crypto.createPrivateKey({ format: 'jwk' })`.
 - The JWK curve error now names every supported curve, derived from the curve table.
+
+### Changed
+
+- `parseSkDer()` accepts SEC1 and PKCS#8 DER, told apart by version. A buffer that is neither still
+  fails with `Invalid DER encoding of ECPrivateKey`.
+- The unsupported-label error now lists all three accepted PEM labels.
 
 ## [1.0.0] - 2026-11-17
 
