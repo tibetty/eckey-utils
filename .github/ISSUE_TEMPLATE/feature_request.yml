@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest support for another encoding, curve, or API shape
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the library does not support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: The function signature or input you expect, if you have one in mind.
+      render: ts
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Node built-ins, another library, or a workaround you already use.
+    validations:
+      required: false
