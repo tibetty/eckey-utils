@@ -105,7 +105,7 @@ The private key is encoded as `ECPrivateKey` (RFC 5915) by default, or as PKCS#8
 When both keys are passed, the public key is embedded in the private key structure, as OpenSSL does.
 Both encodings are byte-identical to what OpenSSL produces for the same key.
 
-### `parsePem(pem)`
+### `parsePem(pem, options?)`
 
 Parse an `EC PRIVATE KEY` (RFC 5915), `PRIVATE KEY` (PKCS#8) or `PUBLIC KEY` (RFC 5480) block into
 raw key material:
@@ -116,8 +116,23 @@ raw key material:
 
 LF or CRLF line endings, a UTF-8 BOM, an indented block and trailing whitespace on any line are all
 accepted. A private key that was encoded without an embedded public key parses back without
-`publicKey`. Encrypted PEM is rejected with `Encrypted PEM is not supported` rather than silently
-misparsed, and so are PEM blocks this library does not handle, named in the message.
+`publicKey`. PEM blocks this library does not handle are named in the message.
+
+Encrypted private keys are read with a passphrase, for both containers:
+
+```ts
+parsePem(encryptedPem, { passphrase }); // legacy EC PRIVATE KEY + Proc-Type, and ENCRYPTED PRIVATE KEY
+parseSkDer(encryptedDer, { passphrase }); // PKCS#8 EncryptedPrivateKeyInfo
+```
+
+The passphrase goes straight to OpenSSL through `node:crypto`; this library implements no part of
+PBES2. Without a passphrase an encrypted key fails with `Encrypted PEM requires a passphrase`, and
+with a `passphrase` on unencrypted input the option is simply ignored, so one code path can read
+both. Encrypted **output** is not provided — export it with Node:
+
+```ts
+keyObject.export({ format: 'pem', type: 'pkcs8', cipher: 'aes-256-cbc', passphrase });
+```
 
 ### `parseSkDer(der)` and `parsePkDer(der)`
 
@@ -141,17 +156,18 @@ Pass the curve either as the Node name (`secp256k1`) or as the JWK name (`P-256`
 
 Every error is a plain `Error` with a message naming the problem, for example:
 
-| Message                                      | Cause                                     |
-| -------------------------------------------- | ----------------------------------------- |
-| `Curve name is not optional`                 | No curve name was passed                  |
-| `Unsupported elliptic curve: foo`            | The curve is not in the supported list    |
-| `Either privateKey or publicKey is required` | No key material was passed                |
-| `Only supports raw keys in Buffer`           | Key material is not a `Buffer`            |
-| `Invalid DER encoding of ECPrivateKey`       | Malformed SEC1 private key DER            |
-| `Invalid DER encoding of PrivateKeyInfo`     | Malformed PKCS#8 private key DER          |
-| `Not an EC private key (algorithm OID: …)`   | PKCS#8 holding an RSA, OKP or other key   |
-| `Encrypted PEM is not supported`             | PEM with `Proc-Type: 4,ENCRYPTED` headers |
-| `Unsupported PEM label "…"`                  | A PEM block this library does not handle  |
+| Message                                      | Cause                                      |
+| -------------------------------------------- | ------------------------------------------ |
+| `Curve name is not optional`                 | No curve name was passed                   |
+| `Unsupported elliptic curve: foo`            | The curve is not in the supported list     |
+| `Either privateKey or publicKey is required` | No key material was passed                 |
+| `Only supports raw keys in Buffer`           | Key material is not a `Buffer`             |
+| `Invalid DER encoding of ECPrivateKey`       | Malformed SEC1 private key DER             |
+| `Invalid DER encoding of PrivateKeyInfo`     | Malformed PKCS#8 private key DER           |
+| `Not an EC private key (algorithm OID: …)`   | PKCS#8 holding an RSA, OKP or other key    |
+| `Encrypted PEM requires a passphrase`        | Encrypted key without `{ passphrase }`     |
+| `Cannot decrypt the private key: …`          | Wrong passphrase, or an unsupported cipher |
+| `Unsupported PEM label "…"`                  | A PEM block this library does not handle   |
 
 ## Supported curves
 
@@ -179,9 +195,9 @@ and OpenSSL build you run.
   apply to you. The original motivation for this library was convenience, not key separation.
 - **PEM is EC only.** `Ed25519` and `Ed448` keys are supported as JWK, but a PKCS#8 PEM for them is
   rejected (`Not an EC private key`), because their PEM containers hold no EC parameters.
-- **Encrypted and PKCS#1 PEM blocks are not handled.** Encrypted keys, `RSA PRIVATE KEY` blocks and
-  certificates are rejected by name. Decrypt or convert them with Node first, for example
-  `createPrivateKey(pkcs8Pem).export({ format: 'pem', type: 'sec1' })`.
+- **Encrypted keys are read, not written.** `parsePem` / `parseSkDer` take `{ passphrase }`; to
+  produce an encrypted file, export it with Node (`keyObject.export({ cipher, passphrase })`).
+  `RSA PRIVATE KEY` blocks and certificates are rejected by name.
 
 - **Size is checked, membership is not.** Key length is validated against the curve, but two curves
   of the same size (P-256 and secp256k1, say) cannot be told apart from raw bytes; Node and OpenSSL

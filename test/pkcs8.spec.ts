@@ -273,7 +273,7 @@ describe('rejected PEM inputs', () => {
             '-----END EC PRIVATE KEY-----',
         ].join('\n');
 
-        expect(() => parsePem(encrypted)).toThrow('Encrypted PEM is not supported');
+        expect(() => parsePem(encrypted)).toThrow('Encrypted PEM requires a passphrase');
     });
 
     it('rejects an unknown private key type option', () => {

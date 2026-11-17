@@ -82,7 +82,7 @@ describe('PEM inputs it refuses', () => {
             parsePem(
                 `-----BEGIN ENCRYPTED PRIVATE KEY-----\n${body}\n-----END ENCRYPTED PRIVATE KEY-----`
             )
-        ).toThrow('Unsupported PEM label "ENCRYPTED PRIVATE KEY"');
+        ).toThrow('Encrypted PEM requires a passphrase');
     });
 
     it('refuses non-ASCII content', () => {

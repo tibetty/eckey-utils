@@ -104,6 +104,23 @@ and Ed25519/Ed448 JWKs.
 - A curve argument that is neither a string nor an object is now named in the message
   (`Unsupported elliptic curve: 42`) instead of being reported as missing.
 
+## [Unreleased]
+
+### Added
+
+- Passphrase-protected private keys when parsing: `parsePem(pem, { passphrase })` reads legacy
+  `EC PRIVATE KEY` blocks with `Proc-Type: 4,ENCRYPTED` headers and PKCS#8 `ENCRYPTED PRIVATE KEY`
+  blocks, and `parseSkDer(der, { passphrase })` reads PKCS#8 `EncryptedPrivateKeyInfo`. Decryption
+  is delegated to OpenSSL through `node:crypto`; the library implements no part of PBES2. The
+  option is ignored for unencrypted input, so one code path reads both kinds.
+
+### Changed
+
+- An encrypted key without a passphrase now throws `Encrypted PEM requires a passphrase` (or
+  `Encrypted PKCS#8 requires a passphrase` for DER) instead of the previous
+  `Encrypted PEM is not supported`, and a failed decryption throws
+  `Cannot decrypt the private key: …` with the OpenSSL error as `cause`.
+
 ## Earlier versions
 
 Versions 0.5.0 through 0.7.14 were published without a changelog; see the git log for their history.
