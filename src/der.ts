@@ -397,11 +397,13 @@ const PEM_BLOCK = /^\s*-----BEGIN ([A-Z0-9 ]+)-----\r?\n([\s\S]+?)\r?\n-----END 
 /**
  * Split a PEM block into its label and DER content.
  *
- * Accepts CRLF line endings and surrounding whitespace; whitespace inside the
- * base64 body is ignored by the decoder.
+ * Accepts CRLF line endings, a byte order mark, an indented block and trailing
+ * whitespace on any line; whitespace inside the base64 body is ignored by the
+ * decoder either way.
  */
 export function fromPem(pem: string): { tag: string; der: Buffer } {
-  const match = PEM_BLOCK.exec(pem);
+  const normalized = pem.replace(/^\uFEFF/, '').replace(/^[ \t]+|[ \t]+$/gm, '');
+  const match = PEM_BLOCK.exec(normalized);
   if (!match) {
     throw new Error('Invalid or unsupported PEM content');
   }

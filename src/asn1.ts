@@ -3,14 +3,6 @@
  * OBJECT IDENTIFIER values.
  */
 
-/** Thrown when a DER buffer cannot be decoded. Always has a stable `message`. */
-export class DerError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'DerError';
-  }
-}
-
 /**
  * Encode a DER length: short form below 0x80, long form above.
  *
@@ -37,7 +29,7 @@ export function encodeLength(len: number): Buffer {
  */
 export function decodeLength(buf: Buffer, start: number): [number, number] {
   if (start >= buf.length) {
-    throw new DerError('Truncated DER length');
+    throw new Error('Truncated DER length');
   }
   let pos = start;
   const first = buf[pos++];
@@ -46,7 +38,7 @@ export function decodeLength(buf: Buffer, start: number): [number, number] {
   }
   const octetCount = first & 0x7f;
   if (octetCount === 0 || pos + octetCount > buf.length) {
-    throw new DerError('Truncated DER length');
+    throw new Error('Truncated DER length');
   }
   let len = 0;
   for (let i = 0; i < octetCount; i++) {
@@ -63,13 +55,13 @@ export function encodeTlv(tag: number, content: Buffer): Buffer {
 /** Parse the tag, content bounds and length of a TLV starting at `start`. */
 export function decodeTlv(buf: Buffer, start: number): { tag: number; start: number; end: number } {
   if (start >= buf.length) {
-    throw new DerError('Truncated DER content');
+    throw new Error('Truncated DER content');
   }
   const tag = buf[start];
   const [len, contentStart] = decodeLength(buf, start + 1);
   const end = contentStart + len;
   if (end > buf.length) {
-    throw new DerError('Truncated DER content');
+    throw new Error('Truncated DER content');
   }
   return { tag, start: contentStart, end };
 }
@@ -83,7 +75,7 @@ const OID_PATTERN = /^[0-2](\.(0|[1-9]\d*))+$/;
  */
 export function encodeOid(oid: string): Buffer {
   if (typeof oid !== 'string' || !OID_PATTERN.test(oid)) {
-    throw new DerError('Invalid Object Identifier');
+    throw new Error('Invalid Object Identifier');
   }
   const arcs = oid.split('.').map(Number);
   // The first two arcs are folded into a single subidentifier.
@@ -106,14 +98,14 @@ export function encodeOid(oid: string): Buffer {
 export function decodeOid(buf: Buffer, start: number, len: number): string {
   const end = start + len;
   if (end > buf.length) {
-    throw new DerError('Truncated Object Identifier');
+    throw new Error('Truncated Object Identifier');
   }
   let pos = start;
   const nextArc = (): number => {
     let value = 0;
     for (;;) {
       if (pos >= end) {
-        throw new DerError('Truncated Object Identifier');
+        throw new Error('Truncated Object Identifier');
       }
       const octet = buf[pos++];
       value = value * 128 + (octet & 0x7f);

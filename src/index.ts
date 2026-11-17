@@ -102,11 +102,18 @@ interface NormalizedArgs {
   publicKey: Buffer | undefined;
 }
 
-/** Flatten the two accepted argument forms into one shape. */
+/**
+ * Flatten the two accepted argument forms into one shape.
+ *
+ * A non-string, non-object curve is passed through so the error names the value
+ * instead of claiming the curve was omitted.
+ */
 function normalizeArgs(input: GenerateInput, keys?: RawKeyMaterial): NormalizedArgs {
-  const fromInput: RawKeyMaterial & CurveAliases = input && typeof input === 'object' ? input : {};
-  const curve =
-    typeof input === 'string' ? input : (fromInput.crv ?? fromInput.curve ?? fromInput.curveName);
+  const objectForm = input !== null && typeof input === 'object';
+  const fromInput: RawKeyMaterial & CurveAliases = objectForm ? input : {};
+  const curve = objectForm
+    ? (fromInput.crv ?? fromInput.curve ?? fromInput.curveName)
+    : (input as unknown);
   const privateKey = fromInput.sk || fromInput.privateKey || keys?.sk || keys?.privateKey;
   const publicKey = fromInput.pk || fromInput.publicKey || keys?.pk || keys?.publicKey;
   return { curve, privateKey, publicKey };

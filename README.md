@@ -110,9 +110,10 @@ raw key material:
 { curveName: 'prime256v1', privateKey?: Buffer, publicKey?: Buffer }
 ```
 
-LF and CRLF line endings, indented blocks and trailing whitespace are all accepted. A private key
-that was encoded without an embedded public key parses back without `publicKey`. Encrypted PEM is
-rejected with `Encrypted PEM is not supported` rather than silently misparsed.
+LF or CRLF line endings, a UTF-8 BOM, an indented block and trailing whitespace on any line are all
+accepted. A private key that was encoded without an embedded public key parses back without
+`publicKey`. Encrypted PEM is rejected with `Encrypted PEM is not supported` rather than silently
+misparsed, and so are PEM blocks this library does not handle, named in the message.
 
 ### `parseSkDer(der)` and `parsePkDer(der)`
 

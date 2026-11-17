@@ -103,9 +103,9 @@ describe('fixed test vector', () => {
     const info = parseJwk({
       kty: 'EC',
       crv: 'P-256',
-      x: 'YP7UuiVanTHJYet0xjVtaMBJuJI7Yfps5mliLmDyn7Y=',
-      y: 'A/4QCLi8maQa6elWKLxk8vGyDC1+n1F3o8KU1EYimQ=',
-      d: 'ya+p2EW6dRZrXCFXZ7HWk05Qw9s26JsSe4piKxIPZyE=',
+      x: 'YP7UuiVanTHJYet0xjVtaMBJuJI7Yfps5mliLmDyn7Y',
+      y: 'eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk',
+      d: 'ya+p2EW6dRZrXCFXZ7HWk05Qw9s26JsSe4piKxIPZyE',
     });
     expect(info.curveName).toBe('prime256v1');
     expect(info.privateKey).toEqual(sk);

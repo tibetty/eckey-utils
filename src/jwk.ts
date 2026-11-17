@@ -4,7 +4,13 @@
  * Covers the curves with a registered JWK `crv` value: `P-256`, `P-384` and
  * `P-521` (RFC 7518) plus `secp256k1` (RFC 8812).
  */
-import { ANSI_CURVES, CURVE_TO_ANSI, type AnsiCurveName, type CurveName } from './curves.js';
+import {
+  ANSI_CURVES,
+  CURVE_KEY_BYTES,
+  CURVE_TO_ANSI,
+  type AnsiCurveName,
+  type CurveName,
+} from './curves.js';
 import { decodeBase64Url, encodeBase64Url } from './base64url.js';
 import { toUncompressedPoint, type KeyInfo } from './der.js';
 
@@ -91,12 +97,30 @@ export function decodeJwk(jwk: EcJsonWebKey): KeyInfo {
     throw new Error('EC JSON Web Key requires both "x" and "y"');
   }
 
+  const keyBytes = CURVE_KEY_BYTES[curve];
+  const [x, y] = [jwk.x, jwk.y].map(decodeBase64Url);
+  if (x.length !== keyBytes || y.length !== keyBytes) {
+    const lengths = x.length === y.length ? `${x.length}` : `${x.length} and ${y.length}`;
+    throw new Error(
+      `Coordinate length ${lengths} does not match curve ${curve} (expected ${keyBytes} each)`
+    );
+  }
+
   const info: KeyInfo = {
     curveName: curve,
-    publicKey: Buffer.concat([Buffer.from([0x04]), decodeBase64Url(jwk.x), decodeBase64Url(jwk.y)]),
+    publicKey: Buffer.concat([Buffer.from([0x04]), x, y]),
   };
   if (typeof jwk.d === 'string') {
-    info.privateKey = decodeBase64Url(jwk.d);
+    const privateKey = decodeBase64Url(jwk.d);
+    if (privateKey.length === 0) {
+      throw new Error('EC JSON Web Key has an empty "d"');
+    }
+    if (privateKey.length > keyBytes) {
+      throw new Error(
+        `Private key length ${privateKey.length} does not match curve ${curve} (expected at most ${keyBytes})`
+      );
+    }
+    info.privateKey = privateKey;
   }
   return info;
 }

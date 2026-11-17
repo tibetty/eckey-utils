@@ -28,8 +28,20 @@ All notable changes to this project are documented in this file. The format foll
   `crypto.createPrivateKey({ format: 'jwk' })`.
 - The JWK curve error now names every supported curve, derived from the curve table.
 
+### Fixed
+
+- `parseJwk()` now validates the size of `x`, `y` and `d` against the curve instead of building a
+  point from whatever came in, and rejects an empty `d`. A JWK for another curve, or a truncated one,
+  previously produced a bogus key silently.
+- All failures are plain `Error`; an internal DER error class no longer leaks a different
+  `error.constructor` to callers.
+- A curve argument that is neither a string nor an object is now named in the message
+  (`Unsupported elliptic curve: 42`) instead of being reported as missing.
+
 ### Changed
 
+- `parsePem()` accepts a UTF-8 BOM, an indented block and trailing whitespace on any line, all of
+  which real-world PEM files carry.
 - Key material is validated against the named curve: a private key longer than the curve's coordinate
   size, or a public point that is not `1 + 2n` (uncompressed) or `1 + n` (compressed) bytes, throws
   with both sizes in the message. Input that used to produce an unusable encoding now fails at the
