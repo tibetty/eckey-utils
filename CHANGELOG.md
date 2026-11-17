@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-11-17
+
+### Added
+
+- Encrypted private key output. `generatePem()` and `generateDer()` accept `{ passphrase }` plus an
+  optional `{ cipher }`, and follow OpenSSL's own defaults for `openssl pkcs8 -topk8 -v2 aes-256-cbc`:
+  PKCS#8 `PBES2` wrapping `PBKDF2` with 2048 iterations and hmacWithSHA256, with whatever salt length
+  the running OpenSSL uses (8 bytes on 3.0, 16 from 3.2). OpenSSL reads the output back.
+  `{ type: 'sec1', passphrase }` writes the legacy `Proc-Type: 4,ENCRYPTED` container for tooling
+  that still needs it.
+
+### Changed
+
+- `passphrase` without `type` implies PKCS#8 rather than SEC1, and `cipher` without `passphrase`
+  throws instead of being ignored. Encrypted DER with `type: 'sec1'` throws, because OpenSSL cannot
+  write SEC1 DER encrypted.
+
+### Fixed
+
+- Test failures on Node 20 print the failing assertion again. Vitest's failure formatter uses
+  `Map.groupBy`, which Node 21 added, so every failure on Node 20 reported only
+  `TypeError: Map.groupBy is not a function`; `test/setup.ts` now supplies the method when the
+  runtime is older.
+
 ## [1.1.0] - 2026-11-17
 
 ### Added
@@ -120,28 +144,6 @@ and Ed25519/Ed448 JWKs.
   `error.constructor` to callers.
 - A curve argument that is neither a string nor an object is now named in the message
   (`Unsupported elliptic curve: 42`) instead of being reported as missing.
-
-## [Unreleased]
-
-### Added
-
-- Encrypted private key output: `generatePem` / `generateDer` accept `{ passphrase }`, with an
-  optional `{ cipher }`. Parameters follow OpenSSL's defaults for `openssl pkcs8 -topk8 -v2
-aes-256-cbc` — PKCS#8 `PBES2`, `PBKDF2` with a 16-byte salt, 2048 iterations and
-  hmacWithSHA256 — so the output is interchangeable with OpenSSL, which reads it back. `{ type:
-'sec1' }` writes the legacy `Proc-Type: 4,ENCRYPTED` container for tooling that still needs it.
-
-### Fixed
-
-- Test failures on Node 20 now print the failing assertion instead of
-  `TypeError: Map.groupBy is not a function`: the Vitest failure formatter uses an
-  API added in Node 21, so `test/setup.ts` provides it when the runtime is older.
-
-### Changed
-
-- `passphrase` without `type` now implies PKCS#8 rather than SEC1, and `cipher` without `passphrase`
-  throws instead of being ignored. Encrypted DER with `type: 'sec1'` throws, because OpenSSL cannot
-  write it.
 
 ## Earlier versions
 
