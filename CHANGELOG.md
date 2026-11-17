@@ -4,10 +4,35 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-11-17
+
+The first release of the rewrite: TypeScript sources, ESM and CommonJS builds with types, a test
+suite that cross-checks every encoding against OpenSSL, and fixes for a set of input-handling bugs.
+
+Existing code that calls the seven public functions keeps working unchanged. The default export
+shape, the flexible argument forms and the PEM/DER/JWK output bytes are preserved — verified against
+0.7.14 over all 79 curves — with one exception: invalid input is now rejected instead of silently
+producing a broken key, as listed under "Changed".
+
+New since 0.7: PKCS#8 private keys, compressed public points, key length validation, `secp256k1`
+and Ed25519/Ed448 JWKs.
 
 ### Added
 
+- A default export holding the seven functions, so `import ecKeyUtils from 'eckey-utils'` keeps
+  working alongside the named imports. `require()` returns both.
+- TypeScript sources with bundled type definitions, `exports` map, and ESM (`dist/index.js`) plus
+  CommonJS (`dist/index.cjs`) builds.
+- `CurveName`, `AnsiCurveName`, `KeyInfo`, `RawKeyMaterial`, `DerKeyPair`, `PemKeyPair` and
+  `EcJsonWebKey` types, exported alongside the functions.
+- `CURVE_NAMES`, `CURVE_OIDS` and `ANSI_CURVES` exports, so callers can enumerate what is supported
+  instead of copying the list.
+- Test suite with assertions, 100% statement and branch coverage, cross-checked against OpenSSL via
+  Node: DER and PEM output is byte-identical to `KeyObject.export()` for P-256, P-384, P-521 and
+  secp256k1.
+- GitHub Actions CI on Node 20, 22 and 24.
+- `LICENSE` file (ISC, as declared in `package.json` since 2018).
+- `engines.node >= 18`, a `files` allowlist so only `dist` is published, and `sideEffects: false`.
 - OKP JWK support (RFC 8037) for `Ed25519` and `Ed448`: `generateJwk('Ed25519', { sk, pk })` and
   `parseJwk({ kty: 'OKP', … })`, with `OKP_CURVES` describing the two curves. Output is accepted by
   `crypto.createPrivateKey({ format: 'jwk' })` and signs through `crypto.sign(null, …)`. PEM remains
@@ -28,18 +53,18 @@ All notable changes to this project are documented in this file. The format foll
   `crypto.createPrivateKey({ format: 'jwk' })`.
 - The JWK curve error now names every supported curve, derived from the curve table.
 
-### Fixed
-
-- `parseJwk()` now validates the size of `x`, `y` and `d` against the curve instead of building a
-  point from whatever came in, and rejects an empty `d`. A JWK for another curve, or a truncated one,
-  previously produced a bogus key silently.
-- All failures are plain `Error`; an internal DER error class no longer leaks a different
-  `error.constructor` to callers.
-- A curve argument that is neither a string nor an object is now named in the message
-  (`Unsupported elliptic curve: 42`) instead of being reported as missing.
-
 ### Changed
 
+- `generateJwk()` with only a private key now throws
+  `Raw public key is required to build a private JWK` instead of returning an empty object.
+- An unknown curve name now throws `Unsupported elliptic curve: <name>` instead of the misleading
+  `Invalid Object Identifier`.
+- A curve name may also be given as the JWK name (`P-256`), in every function.
+- JWKs without `x`/`y` are rejected with `EC JSON Web Key requires both "x" and "y"` instead of a
+  `TypeError` from internals, and the curve error names every supported curve.
+- `parsePem()` accepts CRLF line endings and a base64 body on a single line.
+- `parsePem()` throws `Unsupported PEM label "<label>"` for PEM blocks other than
+  `EC PRIVATE KEY` / `PUBLIC KEY`, replacing the generic invalid-content error.
 - `parsePem()` accepts a UTF-8 BOM, an indented block and trailing whitespace on any line, all of
   which real-world PEM files carry.
 - Key material is validated against the named curve: a private key longer than the curve's coordinate
@@ -55,44 +80,6 @@ All notable changes to this project are documented in this file. The format foll
   fails with `Invalid DER encoding of ECPrivateKey`.
 - The unsupported-label error now lists all three accepted PEM labels.
 
-## [1.0.0] - 2026-11-17
-
-This release rewrites the package in TypeScript and fixes a set of input-handling bugs. Existing
-code that calls the seven public functions keeps working unchanged; the default export shape, the
-flexible argument forms and the PEM/DER/JWK output bytes are preserved. The one exception is the
-JWK input handling noted under "Changed".
-
-### Added
-
-- A default export holding the seven functions, so `import ecKeyUtils from 'eckey-utils'` keeps
-  working alongside the named imports. `require()` returns both.
-- TypeScript sources with bundled type definitions, `exports` map, and ESM (`dist/index.js`) plus
-  CommonJS (`dist/index.cjs`) builds.
-- `CurveName`, `AnsiCurveName`, `KeyInfo`, `RawKeyMaterial`, `DerKeyPair`, `PemKeyPair` and
-  `EcJsonWebKey` types, exported alongside the functions.
-- `CURVE_NAMES`, `CURVE_OIDS` and `ANSI_CURVES` exports, so callers can enumerate what is supported
-  instead of copying the list.
-- Test suite with assertions, 100% statement and branch coverage, cross-checked against OpenSSL via
-  Node: DER and PEM output is byte-identical to `KeyObject.export()` for P-256, P-384, P-521 and
-  secp256k1.
-- GitHub Actions CI on Node 20, 22 and 24.
-- `LICENSE` file (ISC, as declared in `package.json` since 2018).
-- `engines.node >= 18`, a `files` allowlist so only `dist` is published, and `sideEffects: false`.
-
-### Changed
-
-- `generateJwk()` with only a private key now throws
-  `Raw public key is required to build a private JWK` instead of returning an empty object.
-- An unknown curve name now throws `Unsupported elliptic curve: <name>` instead of the misleading
-  `Invalid Object Identifier`.
-- A curve name may also be given as the JWK name (`P-256`), in every function.
-- JWK curve errors read `JWK supports only P-256, P-384 and P-521`, and JWKs without `x`/`y` are
-  rejected with `EC JSON Web Key requires both "x" and "y"` instead of a `TypeError` from internals.
-- `Only support uncompressed public key` is now `Only uncompressed public keys are supported`.
-- `parsePem()` accepts CRLF line endings and a base64 body on a single line.
-- `parsePem()` throws `Unsupported PEM label "<label>"` for PEM blocks other than
-  `EC PRIVATE KEY` / `PUBLIC KEY`, replacing the generic invalid-content error.
-
 ### Fixed
 
 - The CommonJS build no longer sets `__esModule` without providing a default export, which made
@@ -106,6 +93,13 @@ JWK input handling noted under "Changed".
   parsing past them.
 - The DER encoder and parser no longer keep encoded OIDs in the curve-name table, and
   `generateDer`/`generatePem` share one implementation instead of duplicated bodies.
+- `parseJwk()` now validates the size of `x`, `y` and `d` against the curve instead of building a
+  point from whatever came in, and rejects an empty `d`. A JWK for another curve, or a truncated one,
+  previously produced a bogus key silently.
+- All failures are plain `Error`; an internal DER error class no longer leaks a different
+  `error.constructor` to callers.
+- A curve argument that is neither a string nor an object is now named in the message
+  (`Unsupported elliptic curve: 42`) instead of being reported as missing.
 
 ## Earlier versions
 
