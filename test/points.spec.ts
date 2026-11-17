@@ -89,12 +89,9 @@ describe('rejected points', () => {
 
   it('rejects a point it cannot identify', () => {
     const hybrid = Buffer.concat([Buffer.from([0x05]), pk.subarray(1)]);
-    expect(() => generatePem('prime256v1', { pk: hybrid })).toThrow(
-      'Only uncompressed public keys are supported'
-    );
-    expect(() => generateJwk('prime256v1', { pk: Buffer.alloc(0) })).toThrow(
-      'Only uncompressed public keys are supported'
-    );
+    const prefixError = 'Public key must be an uncompressed (04) or compressed (02/03) EC point';
+    expect(() => generatePem('prime256v1', { pk: hybrid })).toThrow(prefixError);
+    expect(() => generateJwk('prime256v1', { pk: hybrid })).toThrow(prefixError);
   });
 
   it('rejects a compressed point that is not on the curve', () => {
@@ -111,7 +108,8 @@ describe('rejected points', () => {
 
   it('rejects a compressed point of the wrong length for the curve', () => {
     expect(() => generatePem('secp384r1', { pk: compressPoint(pk) })).toThrow(
-      /^Cannot decompress the public key point on secp384r1: /
+      'Public key length 33 does not match curve secp384r1 ' +
+        '(expected 97 for an uncompressed point, 49 for a compressed one)'
     );
   });
 });

@@ -18,6 +18,7 @@ into raw keys.
 - JWK support for P-256, P-384, P-521 and secp256k1.
 - Compressed public points (`02 || x` / `03 || x`) accepted anywhere a key is read; output is always
   uncompressed.
+- Key length checked against the curve, so a key from the wrong curve fails where it happens.
 
 ## Install
 
@@ -89,6 +90,11 @@ Key aliases accepted in either argument: `sk` / `privateKey`, `pk` / `publicKey`
 accepted in the object form: `curveName` / `curve` / `crv`. A curve name can be the Node name
 (`prime256v1`) or the JWK name (`P-256`).
 
+Key material is checked against the curve before encoding: a private key may not be longer than the
+curve's coordinate size, and a public point must be `1 + 2n` bytes uncompressed or `1 + n` bytes
+compressed, where `n` is `CURVE_KEY_BYTES[curve]`. A key from another curve, a truncated buffer or a
+hex string therefore fails at the call, with the curve and both sizes in the message.
+
 The private key is encoded as `ECPrivateKey` (RFC 5915) by default, or as PKCS#8 `PrivateKeyInfo`
 (RFC 5958) with `{ type: 'pkcs8' }`; the public key is always `SubjectPublicKeyInfo` (RFC 5480).
 When both keys are passed, the public key is embedded in the private key structure, as OpenSSL does.
@@ -143,7 +149,8 @@ Every error is a plain `Error` with a message naming the problem, for example:
 
 ## Supported curves
 
-`CURVE_NAMES` lists all 79 names and `CURVE_OIDS` maps each one to its OID.
+`CURVE_NAMES` lists all 79 names, `CURVE_OIDS` maps each one to its OID, and `CURVE_KEY_BYTES` gives
+its coordinate size in bytes.
 
 | Family               | Example                               |
 | -------------------- | ------------------------------------- |
@@ -165,8 +172,9 @@ and OpenSSL build you run.
   certificates are rejected by name. Decrypt or convert them with Node first, for example
   `createPrivateKey(pkcs8Pem).export({ format: 'pem', type: 'sec1' })`.
 
-- **Raw keys only.** Keys must be `Buffer`s of the curve's own size; the library does not check that
-  a key belongs to the curve you name. Node and OpenSSL reject mismatches when the key is used.
+- **Size is checked, membership is not.** Key length is validated against the curve, but two curves
+  of the same size (P-256 and secp256k1, say) cannot be told apart from raw bytes; Node and OpenSSL
+  reject such a mismatch when the key is used.
 - **Modern Node can often skip this library.** `crypto.createPrivateKey({ key: jwk, format: 'jwk' })`
   builds a `KeyObject` from a JWK directly (Node 15.12+). This library remains useful when you have
   raw keys and need PEM, or need to parse PEM back into raw keys.

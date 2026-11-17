@@ -103,6 +103,86 @@ export const CURVE_OIDS = {
 export type CurveName = keyof typeof CURVE_OIDS;
 
 /**
+ * Curve coordinate size in bytes, grouped by size so the table stays auditable.
+ *
+ * The values are the ones OpenSSL reports for the same curve names; they drive
+ * the key length validation in the generate functions.
+ */
+const KEY_BYTES_BY_SIZE: Readonly<Record<number, readonly CurveName[]>> = {
+  14: ['secp112r1', 'secp112r2', 'wap-wsg-idm-ecid-wtls6', 'wap-wsg-idm-ecid-wtls8'],
+  15: ['sect113r1', 'sect113r2', 'wap-wsg-idm-ecid-wtls1', 'wap-wsg-idm-ecid-wtls4'],
+  16: ['secp128r1', 'secp128r2'],
+  17: ['sect131r1', 'sect131r2'],
+  20: [
+    'secp160k1',
+    'secp160r1',
+    'secp160r2',
+    'brainpoolP160r1',
+    'brainpoolP160t1',
+    'wap-wsg-idm-ecid-wtls7',
+    'wap-wsg-idm-ecid-wtls9',
+  ],
+  21: [
+    'sect163k1',
+    'sect163r1',
+    'sect163r2',
+    'c2pnb163v1',
+    'c2pnb163v2',
+    'c2pnb163v3',
+    'wap-wsg-idm-ecid-wtls3',
+    'wap-wsg-idm-ecid-wtls5',
+  ],
+  22: ['c2pnb176v1'],
+  24: [
+    'prime192v1',
+    'prime192v2',
+    'prime192v3',
+    'secp192k1',
+    'brainpoolP192r1',
+    'brainpoolP192t1',
+    'c2tnb191v1',
+    'c2tnb191v2',
+    'c2tnb191v3',
+  ],
+  25: ['sect193r1', 'sect193r2'],
+  26: ['c2pnb208w1'],
+  28: ['secp224k1', 'secp224r1', 'brainpoolP224r1', 'brainpoolP224t1', 'wap-wsg-idm-ecid-wtls12'],
+  30: [
+    'prime239v1',
+    'prime239v2',
+    'prime239v3',
+    'sect233k1',
+    'sect233r1',
+    'sect239k1',
+    'c2tnb239v1',
+    'c2tnb239v2',
+    'c2tnb239v3',
+    'wap-wsg-idm-ecid-wtls10',
+    'wap-wsg-idm-ecid-wtls11',
+  ],
+  32: ['prime256v1', 'secp256k1', 'brainpoolP256r1', 'brainpoolP256t1'],
+  34: ['c2pnb272w1'],
+  36: ['sect283k1', 'sect283r1'],
+  38: ['c2pnb304w1'],
+  40: ['brainpoolP320r1', 'brainpoolP320t1'],
+  45: ['c2tnb359v1'],
+  46: ['c2pnb368w1'],
+  48: ['secp384r1', 'brainpoolP384r1', 'brainpoolP384t1'],
+  52: ['sect409k1', 'sect409r1'],
+  54: ['c2tnb431r1'],
+  64: ['brainpoolP512r1', 'brainpoolP512t1'],
+  66: ['secp521r1'],
+  72: ['sect571k1', 'sect571r1'],
+};
+
+/** Coordinate size in bytes of each curve: 32 for P-256, 66 for P-521, and so on. */
+export const CURVE_KEY_BYTES: Readonly<Record<CurveName, number>> = Object.fromEntries(
+  Object.entries(KEY_BYTES_BY_SIZE).flatMap(([bytes, curves]) =>
+    curves.map((curve) => [curve, Number(bytes)])
+  )
+) as Record<CurveName, number>;
+
+/**
  * Curves that can be represented as a JWK (`crv` value to curve name).
  *
  * P-256/384/521 are registered by RFC 7518, secp256k1 by RFC 8812.
