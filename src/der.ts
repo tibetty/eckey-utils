@@ -455,6 +455,33 @@ export function decryptPrivateKey(
 }
 
 /**
+ * Encrypt a private key with OpenSSL.
+ *
+ * Parameters follow OpenSSL's own defaults, so the result is interchangeable
+ * with `openssl pkcs8 -topk8 -v2 aes-256-cbc`: PKCS#8 `PBES2`, `PBKDF2` with a
+ * 16-byte salt, 2048 iterations and hmacWithSHA256, then the given cipher.
+ * `sec1` is the legacy `Proc-Type: 4,ENCRYPTED` container, which OpenSSL still
+ * writes for `openssl ec -aes256`.
+ */
+export function encryptPrivateKey(
+    der: Buffer,
+    options: {
+        container: 'sec1' | 'pkcs8';
+        format: 'pem' | 'der';
+        cipher: string;
+        passphrase: string | Buffer;
+    }
+): string | Buffer {
+    const { container, format, cipher, passphrase } = options;
+    try {
+        const key = createPrivateKey({ key: der, format: 'der', type: container });
+        return key.export({ format, type: container, cipher, passphrase });
+    } catch (error) {
+        throw new Error(`Cannot encrypt the private key: ${String(error)}`, { cause: error });
+    }
+}
+
+/**
  * Split a PEM block into its label and DER content.
  *
  * Accepts CRLF line endings, a byte order mark, an indented block and trailing

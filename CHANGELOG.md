@@ -121,6 +121,22 @@ and Ed25519/Ed448 JWKs.
 - A curve argument that is neither a string nor an object is now named in the message
   (`Unsupported elliptic curve: 42`) instead of being reported as missing.
 
+## [Unreleased]
+
+### Added
+
+- Encrypted private key output: `generatePem` / `generateDer` accept `{ passphrase }`, with an
+  optional `{ cipher }`. Parameters follow OpenSSL's defaults for `openssl pkcs8 -topk8 -v2
+aes-256-cbc` — PKCS#8 `PBES2`, `PBKDF2` with a 16-byte salt, 2048 iterations and
+  hmacWithSHA256 — so the output is interchangeable with OpenSSL, which reads it back. `{ type:
+'sec1' }` writes the legacy `Proc-Type: 4,ENCRYPTED` container for tooling that still needs it.
+
+### Changed
+
+- `passphrase` without `type` now implies PKCS#8 rather than SEC1, and `cipher` without `passphrase`
+  throws instead of being ignored. Encrypted DER with `type: 'sec1'` throws, because OpenSSL cannot
+  write it.
+
 ## Earlier versions
 
 Versions 0.5.0 through 0.7.14 were published without a changelog; see the git log for their history.
