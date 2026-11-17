@@ -82,6 +82,9 @@ and Ed25519/Ed448 JWKs.
 
 ### Fixed
 
+- `npm publish` no longer fails its own gate: `attw --pack` starts an `npm pack`, which cannot run
+  inside `npm publish`, so the publish-time check now stops before the packaging checks. They still
+  run in CI on every pull request.
 - The CommonJS build no longer sets `__esModule` without providing a default export, which made
   `import ecKeyUtils from 'eckey-utils'` resolve to `undefined` under TypeScript's `esModuleInterop`.
 - Curve OID validation used a stateful regular expression, so re-encoding the same OID could fail.

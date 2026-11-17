@@ -74,5 +74,8 @@ Maintainer only, and only from a green `master`:
 
 1. Update `version` in `package.json` and move the `## [Unreleased]` entries in `CHANGELOG.md` under
    the new version heading, with the release date.
-2. `npm run check` — this is also `prepublishOnly`, so a broken build cannot be published.
+2. `npm run check` — \`prepublishOnly\` runs \`npm run check:release\`, the same gate without the
+   packaging checks (\`attw --pack\` runs its own \`npm pack\`, which cannot start inside
+   \`npm publish\`). Run \`npm run check\` yourself first; CI covers the packaging checks on every
+   pull request.
 3. `npm publish`, then `git tag v<version> && git push --follow-tags`.
