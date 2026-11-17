@@ -2,64 +2,64 @@ name: Bug report
 description: Something is wrong with an encoding, a parser, or the package itself
 labels: [bug]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for the report. Please do not include real private keys in the issue — a freshly
-        generated test key is enough to reproduce a problem.
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for the report. Please do not include real private keys in the issue — a freshly
+              generated test key is enough to reproduce a problem.
 
-  - type: input
-    id: version
-    attributes:
-      label: eckey-utils version
-      placeholder: 1.0.0
-    validations:
-      required: true
+    - type: input
+      id: version
+      attributes:
+          label: eckey-utils version
+          placeholder: 1.0.0
+      validations:
+          required: true
 
-  - type: input
-    id: node
-    attributes:
-      label: Node version
-      placeholder: output of `node -v`
-    validations:
-      required: true
+    - type: input
+      id: node
+      attributes:
+          label: Node version
+          placeholder: output of `node -v`
+      validations:
+          required: true
 
-  - type: dropdown
-    id: encoding
-    attributes:
-      label: Encoding involved
-      options: [PEM, DER, JWK, TypeScript types, Package install, Other]
-    validations:
-      required: true
+    - type: dropdown
+      id: encoding
+      attributes:
+          label: Encoding involved
+          options: [PEM, DER, JWK, TypeScript types, Package install, Other]
+      validations:
+          required: true
 
-  - type: input
-    id: curve
-    attributes:
-      label: Curve
-      placeholder: prime256v1, P-256, secp256k1…
-    validations:
-      required: false
+    - type: input
+      id: curve
+      attributes:
+          label: Curve
+          placeholder: prime256v1, P-256, secp256k1…
+      validations:
+          required: false
 
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Reproduction
-      description: A minimal script, or the exact call and the input that fails.
-      render: js
-    validations:
-      required: true
+    - type: textarea
+      id: reproduction
+      attributes:
+          label: Reproduction
+          description: A minimal script, or the exact call and the input that fails.
+          render: js
+      validations:
+          required: true
 
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected result
-    validations:
-      required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected result
+      validations:
+          required: true
 
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual result
-      description: Include the error message and stack trace if there is one.
-    validations:
-      required: true
+    - type: textarea
+      id: actual
+      attributes:
+          label: Actual result
+          description: Include the error message and stack trace if there is one.
+      validations:
+          required: true

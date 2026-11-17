@@ -45,8 +45,8 @@ const ecdh = createECDH('prime256v1');
 ecdh.generateKeys();
 
 const { privateKey, publicKey } = generatePem('prime256v1', {
-  sk: ecdh.getPrivateKey(),
-  pk: ecdh.getPublicKey(),
+    sk: ecdh.getPrivateKey(),
+    pk: ecdh.getPublicKey(),
 });
 
 const message = Buffer.from('Hello, World!');

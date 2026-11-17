@@ -1,89 +1,89 @@
 {
-  "name": "eckey-utils",
-  "version": "1.0.0",
-  "description": "Convert raw EC key material to and from PEM, DER and JWK, so keys from crypto.ECDH can be used with crypto.sign and crypto.verify",
-  "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+    "name": "eckey-utils",
+    "version": "1.0.0",
+    "description": "Convert raw EC key material to and from PEM, DER and JWK, so keys from crypto.ECDH can be used with crypto.sign and crypto.verify",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./package.json": "./package.json"
     },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist"
-  ],
-  "sideEffects": false,
-  "engines": {
-    "node": ">=18"
-  },
-  "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "coverage": "vitest run --coverage",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "check:package": "publint && attw --pack .",
-    "check:dist": "node scripts/check-dist.mjs",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run coverage && npm run build && npm run check:dist && npm run check:package",
-    "prepublishOnly": "npm run check:release",
-    "check:release": "npm run typecheck && npm run lint && npm run format:check && npm run coverage && npm run build && npm run check:dist"
-  },
-  "keywords": [
-    "ec",
-    "elliptic curve",
-    "ecc",
-    "key",
-    "public key",
-    "private key",
-    "raw",
-    "conversion",
-    "pem",
-    "der",
-    "jwk",
-    "ecdh",
-    "ecdsa",
-    "sign",
-    "verify"
-  ],
-  "author": "tibetty <xihua.duan@gmail.com>",
-  "license": "ISC",
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tibetty/eckey-utils.git"
-  },
-  "bugs": {
-    "url": "https://github.com/tibetty/eckey-utils/issues"
-  },
-  "homepage": "https://github.com/tibetty/eckey-utils#readme",
-  "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.5",
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.1.0",
-    "eslint": "^10.15.0",
-    "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.10.1",
-    "publint": "^0.3.25",
-    "tsup": "^9.0.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.73.0",
-    "vitest": "^5.1.0"
-  }
+    "files": [
+        "dist"
+    ],
+    "sideEffects": false,
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "build": "tsup",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "coverage": "vitest run --coverage",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "check:package": "publint && attw --pack .",
+        "check:dist": "node scripts/check-dist.mjs",
+        "check": "npm run typecheck && npm run lint && npm run format:check && npm run coverage && npm run build && npm run check:dist && npm run check:package",
+        "prepublishOnly": "npm run check:release",
+        "check:release": "npm run typecheck && npm run lint && npm run format:check && npm run coverage && npm run build && npm run check:dist"
+    },
+    "keywords": [
+        "ec",
+        "elliptic curve",
+        "ecc",
+        "key",
+        "public key",
+        "private key",
+        "raw",
+        "conversion",
+        "pem",
+        "der",
+        "jwk",
+        "ecdh",
+        "ecdsa",
+        "sign",
+        "verify"
+    ],
+    "author": "tibetty <xihua.duan@gmail.com>",
+    "license": "ISC",
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/tibetty/eckey-utils.git"
+    },
+    "bugs": {
+        "url": "https://github.com/tibetty/eckey-utils/issues"
+    },
+    "homepage": "https://github.com/tibetty/eckey-utils#readme",
+    "devDependencies": {
+        "@arethetypeswrong/cli": "^0.18.5",
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^26.6.6",
+        "@vitest/coverage-v8": "^5.1.0",
+        "eslint": "^10.15.0",
+        "eslint-config-prettier": "^10.1.8",
+        "prettier": "^3.10.1",
+        "publint": "^0.3.25",
+        "tsup": "^9.0.0",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.73.0",
+        "vitest": "^5.1.0"
+    }
 }

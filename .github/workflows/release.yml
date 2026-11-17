@@ -1,50 +1,50 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - v*
+    push:
+        tags:
+            - v*
 
 permissions:
-  contents: write
-  id-token: write
+    contents: write
+    id-token: write
 
 jobs:
-  publish:
-    name: Publish to npm
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      # Trusted publishing needs Node >= 22.14; no package-manager cache in
-      # release builds, so the tarball is built from a clean install.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
-      # Trusted publishing needs npm 11.5.1 or newer, which Node 24 does not ship yet.
-      - name: Install a current npm
-        run: npm install --global npm@latest
-      - run: npm ci
-      - name: Check the tag matches the package version
-        run: |
-          expected="v$(node --print 'require("./package.json").version')"
-          if [ "${expected}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package version ${expected}" >&2
-            exit 1
-          fi
-      - name: Full gate
-        run: npm run check
-      # No token: npm authenticates through the OIDC identity of this workflow,
-      # and the attestation is published alongside the tarball.
-      - name: Publish
-        run: npm publish --provenance --access public
-      - name: Open the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            echo "Release ${GITHUB_REF_NAME} already exists"
-          else
-            gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes --verify-tag
-          fi
+    publish:
+        name: Publish to npm
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            # Trusted publishing needs Node >= 22.14; no package-manager cache in
+            # release builds, so the tarball is built from a clean install.
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  registry-url: https://registry.npmjs.org
+                  package-manager-cache: false
+            # Trusted publishing needs npm 11.5.1 or newer, which Node 24 does not ship yet.
+            - name: Install a current npm
+              run: npm install --global npm@latest
+            - run: npm ci
+            - name: Check the tag matches the package version
+              run: |
+                  expected="v$(node --print 'require("./package.json").version')"
+                  if [ "${expected}" != "${GITHUB_REF_NAME}" ]; then
+                    echo "Tag ${GITHUB_REF_NAME} does not match package version ${expected}" >&2
+                    exit 1
+                  fi
+            - name: Full gate
+              run: npm run check
+            # No token: npm authenticates through the OIDC identity of this workflow,
+            # and the attestation is published alongside the tarball.
+            - name: Publish
+              run: npm publish --provenance --access public
+            - name: Open the GitHub release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+                    echo "Release ${GITHUB_REF_NAME} already exists"
+                  else
+                    gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes --verify-tag
+                  fi

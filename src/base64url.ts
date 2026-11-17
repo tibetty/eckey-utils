@@ -2,10 +2,10 @@
 
 /** Encode without padding, using `-` and `_` instead of `+` and `/`. */
 export function encodeBase64Url(buf: Buffer): string {
-  return buf.toString('base64').replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    return buf.toString('base64').replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 /** Decode unpadded base64url. */
 export function decodeBase64Url(value: string): Buffer {
-  return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 }

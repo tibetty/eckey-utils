@@ -75,9 +75,9 @@ Maintainer only, published from CI so every tarball carries a provenance attesta
 ### One-time setup on npm
 
 1. Open the package on npmjs.com, then **Settings → Trusted publishing → Add a publisher**:
-   - repository: `tibetty/eckey-utils`
-   - workflow: `release.yml`
-   - environment: leave empty
+    - repository: `tibetty/eckey-utils`
+    - workflow: `release.yml`
+    - environment: leave empty
 2. **Settings → Publishing access**: require two-factor authentication. Trusted publishing needs no
    token, so do not keep a long-lived publish token unless you want the fallback below.
 3. Access level stays **public**; `publishConfig` in `package.json` states that explicitly, together
@@ -90,10 +90,10 @@ Maintainer only, published from CI so every tarball carries a provenance attesta
 2. Merge to `master` and wait for CI to be green.
 3. Tag and push:
 
-   ```bash
-   git tag -a v<version> -m v<version>
-   git push origin v<version>
-   ```
+    ```bash
+    git tag -a v<version> -m v<version>
+    git push origin v<version>
+    ```
 
 4. The `Release` workflow verifies that the tag matches `package.json`, runs `npm run check`, and
    publishes with `--provenance --access public` through the workflow's own OIDC identity. No secret
