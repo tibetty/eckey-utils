@@ -199,3 +199,22 @@ export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKey
 export function parseJwk(jwk: EcJsonWebKey): KeyInfo {
   return decodeJwk(jwk);
 }
+
+/**
+ * The 0.7 module shape: the same seven functions as a single object.
+ *
+ * Kept as the default export so `import ecKeyUtils from 'eckey-utils'` — the
+ * pattern TypeScript and Babel users compile against a CommonJS package —
+ * keeps working after the move to named exports.
+ */
+const ecKeyUtils = {
+  generateDer,
+  generateJwk,
+  generatePem,
+  parseJwk,
+  parsePem,
+  parsePkDer,
+  parseSkDer,
+};
+
+export default ecKeyUtils;

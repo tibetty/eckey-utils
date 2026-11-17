@@ -72,3 +72,22 @@ describe('types', () => {
     expect(() => generatePem({ curveName: 1, sk })).toThrow();
   });
 });
+
+describe('module shape', () => {
+  it('keeps the 0.7 default export: the same seven functions, nothing else', async () => {
+    const { default: ecKeyUtils, ...named } = await import('../src/index.js');
+
+    expect(Object.keys(ecKeyUtils).sort()).toEqual([
+      'generateDer',
+      'generateJwk',
+      'generatePem',
+      'parseJwk',
+      'parsePem',
+      'parsePkDer',
+      'parseSkDer',
+    ]);
+    for (const [name, fn] of Object.entries(ecKeyUtils)) {
+      expect(fn).toBe(named[name as keyof typeof named]);
+    }
+  });
+});
