@@ -13,6 +13,8 @@ JWK input handling noted under "Changed".
 
 ### Added
 
+- A default export holding the seven functions, so `import ecKeyUtils from 'eckey-utils'` keeps
+  working alongside the named imports. `require()` returns both.
 - TypeScript sources with bundled type definitions, `exports` map, and ESM (`dist/index.js`) plus
   CommonJS (`dist/index.cjs`) builds.
 - `CurveName`, `AnsiCurveName`, `KeyInfo`, `RawKeyMaterial`, `DerKeyPair`, `PemKeyPair` and
@@ -42,6 +44,8 @@ JWK input handling noted under "Changed".
 
 ### Fixed
 
+- The CommonJS build no longer sets `__esModule` without providing a default export, which made
+  `import ecKeyUtils from 'eckey-utils'` resolve to `undefined` under TypeScript's `esModuleInterop`.
 - Curve OID validation used a stateful regular expression, so re-encoding the same OID could fail.
 - Public key bytes were sliced from the end of the DER buffer instead of the parsed BIT STRING
   position, which produced wrong keys for buffers with trailing bytes.
