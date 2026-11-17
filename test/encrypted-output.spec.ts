@@ -37,16 +37,32 @@ function pbes2Params(der: Buffer) {
 }
 
 describe('encrypted output follows OpenSSL parameters', () => {
-    it('uses PBES2 with PBKDF2-HMAC-SHA256, 2048 iterations and a 16-byte salt', () => {
+    it('uses PBES2 with PBKDF2-HMAC-SHA256, 2048 iterations and aes-256-cbc', () => {
         const der = generateDer('prime256v1', { sk, pk }, { passphrase: PASSPHRASE }).privateKey;
-        expect(pbes2Params(der as Buffer)).toEqual({
+
+        expect(pbes2Params(der as Buffer)).toMatchObject({
             algorithm: '1.2.840.113549.1.5.13', // id-PBES2
             kdf: '1.2.840.113549.1.5.12', // id-PBKDF2
-            saltBytes: 16,
             iterations: 2048,
             prf: '1.2.840.113549.2.9', // hmacWithSHA256
             cipher: '2.16.840.1.101.3.4.1.42', // aes-256-cbc
         });
+    });
+
+    it('matches what OpenSSL produces on this runtime, salt length included', () => {
+        // The salt length is an OpenSSL default that differs between versions
+        // (8 bytes on 3.0, 16 from 3.2), so compare against this runtime's own
+        // output instead of pinning a number.
+        const ours = generateDer('prime256v1', { sk, pk }, { passphrase: PASSPHRASE })
+            .privateKey as Buffer;
+        const reference = createPrivateKey({
+            key: generateDer('prime256v1', { sk, pk }).privateKey as Buffer,
+            format: 'der',
+            type: 'sec1',
+        }).export({ format: 'der', type: 'pkcs8', cipher: 'aes-256-cbc', passphrase: PASSPHRASE });
+
+        expect(pbes2Params(ours)).toEqual(pbes2Params(reference as Buffer));
+        expect(pbes2Params(ours).saltBytes).toBeGreaterThanOrEqual(8);
     });
 
     it('honours an explicit cipher', () => {

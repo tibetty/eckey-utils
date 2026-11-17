@@ -131,6 +131,12 @@ aes-256-cbc` — PKCS#8 `PBES2`, `PBKDF2` with a 16-byte salt, 2048 iterations a
   hmacWithSHA256 — so the output is interchangeable with OpenSSL, which reads it back. `{ type:
 'sec1' }` writes the legacy `Proc-Type: 4,ENCRYPTED` container for tooling that still needs it.
 
+### Fixed
+
+- Test failures on Node 20 now print the failing assertion instead of
+  `TypeError: Map.groupBy is not a function`: the Vitest failure formatter uses an
+  API added in Node 21, so `test/setup.ts` provides it when the runtime is older.
+
 ### Changed
 
 - `passphrase` without `type` now implies PKCS#8 rather than SEC1, and `cipher` without `passphrase`
