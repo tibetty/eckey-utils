@@ -5,7 +5,7 @@
  * `P-521` (RFC 7518) plus `secp256k1` (RFC 8812).
  */
 import { ANSI_CURVES, CURVE_TO_ANSI, type AnsiCurveName, type CurveName } from './curves.js';
-import type { KeyInfo } from './der.js';
+import { toUncompressedPoint, type KeyInfo } from './der.js';
 
 /** An EC JSON Web Key. `x`/`y` are always present; `d` marks a private key. */
 export interface EcJsonWebKey {
@@ -38,9 +38,6 @@ function base64UrlDecode(value: string): Buffer {
 
 /** Split a raw uncompressed EC point into its affine coordinates. */
 function splitPoint(publicKey: Buffer): { x: Buffer; y: Buffer } {
-  if (publicKey[0] !== 0x04 || publicKey.length % 2 !== 1) {
-    throw new Error('Only uncompressed public keys are supported');
-  }
   const half = (publicKey.length - 1) / 2;
   return { x: publicKey.subarray(1, half + 1), y: publicKey.subarray(half + 1) };
 }
@@ -52,7 +49,7 @@ function splitPoint(publicKey: Buffer): { x: Buffer; y: Buffer } {
  * `x` and `y` alongside `d`, and the point cannot be derived from `d` alone
  * without doing EC arithmetic.
  */
-export function encodeJwk(curve: string, privateKey?: Buffer, publicKey?: Buffer): JwkKeyPair {
+export function encodeJwk(curve: CurveName, privateKey?: Buffer, publicKey?: Buffer): JwkKeyPair {
   const crv = CURVE_TO_ANSI[curve];
   if (!crv) {
     throw new Error(JWK_CURVE_ERROR);
@@ -61,7 +58,7 @@ export function encodeJwk(curve: string, privateKey?: Buffer, publicKey?: Buffer
     throw new Error('Raw public key is required to build a private JWK');
   }
 
-  const { x, y } = splitPoint(publicKey as Buffer);
+  const { x, y } = splitPoint(toUncompressedPoint(curve, publicKey as Buffer));
   const result: JwkKeyPair = {};
 
   if (privateKey) {

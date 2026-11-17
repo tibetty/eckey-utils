@@ -12,10 +12,12 @@ Convert raw EC key material to and from PEM, DER and JWK.
 gap in both directions, so the same key pair can be generated raw, persisted as PEM, and parsed back
 into raw keys.
 
-- Zero runtime dependencies, Node's own `Buffer` only.
+- No runtime dependencies: nothing beyond `Buffer` and `node:crypto`.
 - ESM and CommonJS builds with bundled TypeScript types.
 - 79 named curves: NIST, SEC 2 prime and binary, Brainpool, ANSI X9.62 and WAP WSG.
 - JWK support for P-256, P-384, P-521 and secp256k1.
+- Compressed public points (`02 || x` / `03 || x`) accepted anywhere a key is read; output is always
+  uncompressed.
 
 ## Install
 
@@ -78,6 +80,10 @@ generatePem('prime256v1', { sk, pk }, { type: 'pkcs8' }); // { privateKey: '----
 | `input`   | A curve name, or an object carrying the curve name and the keys        |
 | `keys`    | Optional key material, used only for keys missing from `input`         |
 | `options` | `{ type: 'sec1' \| 'pkcs8' }` — private key encoding, default `'sec1'` |
+
+A compressed public point (`02 || x` or `03 || x`, SEC 1 v2 section 2.3.3) is accepted wherever a
+public key is accepted and expanded to `04 || x || y` on the way out, so everything this library
+writes is uncompressed. Decompression is delegated to OpenSSL through `node:crypto`.
 
 Key aliases accepted in either argument: `sk` / `privateKey`, `pk` / `publicKey`. Curve aliases
 accepted in the object form: `curveName` / `curve` / `crv`. A curve name can be the Node name

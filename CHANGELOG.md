@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Compressed public points (SEC 1 v2 section 2.3.3) are accepted by every function that takes key
+  material, and expanded to `04 || x || y`. This unblocks JWK generation from compressed points, which
+  previously threw `Only uncompressed public keys are supported`. Decompression uses OpenSSL through
+  `node:crypto`, so no field arithmetic is implemented here.
 - PKCS#8 private keys (RFC 5958): `parsePem()` and `parseSkDer()` read `-----BEGIN PRIVATE KEY-----`
   blocks and PKCS#8 DER, and `generatePem()` / `generateDer()` write them with a third argument,
   `{ type: 'pkcs8' }`. Output is byte-identical to `KeyObject.export()` and to `openssl genpkey`;
@@ -22,6 +26,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Every public key the library writes or returns is uncompressed: a compressed point passed in, or
+  found in a PEM or DER input, is expanded. Curves OpenSSL cannot decompress fail with
+  `Cannot decompress the public key point on <curve>: …` instead of a generic error.
 - `parseSkDer()` accepts SEC1 and PKCS#8 DER, told apart by version. A buffer that is neither still
   fails with `Invalid DER encoding of ECPrivateKey`.
 - The unsupported-label error now lists all three accepted PEM labels.
