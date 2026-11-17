@@ -18,13 +18,13 @@ import {
   toPem,
   type KeyInfo,
 } from './der.js';
-import { resolveCurveName, type CurveName } from './curves.js';
+import { CURVE_KEY_BYTES, resolveCurveName, type CurveName } from './curves.js';
 import { decodeJwk, encodeJwk, type EcJsonWebKey, type JwkKeyPair } from './jwk.js';
 
 export type { CurveName, AnsiCurveName } from './curves.js';
 export type { KeyInfo } from './der.js';
 export type { EcJsonWebKey, JwkKeyPair } from './jwk.js';
-export { CURVE_NAMES, CURVE_OIDS, ANSI_CURVES } from './curves.js';
+export { CURVE_NAMES, CURVE_OIDS, CURVE_KEY_BYTES, ANSI_CURVES } from './curves.js';
 
 /** Raw key material. `sk`/`pk` are the short aliases of `privateKey`/`publicKey`. */
 export interface RawKeyMaterial {
@@ -101,6 +101,41 @@ function normalizeArgs(input: GenerateInput, keys?: RawKeyMaterial): NormalizedA
   return { curve, privateKey, publicKey };
 }
 
+/**
+ * Check that raw keys have the size the curve expects.
+ *
+ * A key from another curve, a truncated buffer or a hex string decodes to a
+ * plausible-looking encoding, so the size is the only local signal that
+ * something is wrong. The expected point length depends on the prefix, which
+ * also keeps an uncompressed point of one curve from passing as a compressed
+ * point of another.
+ */
+function checkKeyLengths(curveName: CurveName, privateKey?: Buffer, publicKey?: Buffer): void {
+  const keyBytes = CURVE_KEY_BYTES[curveName];
+  if (privateKey && privateKey.length > keyBytes) {
+    throw new Error(
+      `Private key length ${privateKey.length} does not match curve ${curveName} (expected at most ${keyBytes})`
+    );
+  }
+  if (!publicKey) {
+    return;
+  }
+  const compressed = 1 + keyBytes;
+  const uncompressed = 1 + 2 * keyBytes;
+  const expected =
+    publicKey[0] === 0x04
+      ? uncompressed
+      : publicKey[0] === 0x02 || publicKey[0] === 0x03
+        ? compressed
+        : undefined;
+  if (expected !== undefined && publicKey.length !== expected) {
+    throw new Error(
+      `Public key length ${publicKey.length} does not match curve ${curveName} ` +
+        `(expected ${uncompressed} for an uncompressed point, ${compressed} for a compressed one)`
+    );
+  }
+}
+
 /** Validate the curve name and key material shared by every generate function. */
 function resolveArgs(
   input: GenerateInput,
@@ -118,6 +153,7 @@ function resolveArgs(
   if ((privateKey && !Buffer.isBuffer(privateKey)) || (publicKey && !Buffer.isBuffer(publicKey))) {
     throw new Error(RAW_KEY_TYPE_ERROR);
   }
+  checkKeyLengths(curveName, privateKey, publicKey);
   return { curveName, privateKey, publicKey };
 }
 

@@ -26,6 +26,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Key material is validated against the named curve: a private key longer than the curve's coordinate
+  size, or a public point that is not `1 + 2n` (uncompressed) or `1 + n` (compressed) bytes, throws
+  with both sizes in the message. Input that used to produce an unusable encoding now fails at the
+  call. `CURVE_KEY_BYTES` exposes the size of each curve.
+- An unrecognised point prefix now reads `Public key must be an uncompressed (04) or compressed
+(02/03) EC point`.
 - Every public key the library writes or returns is uncompressed: a compressed point passed in, or
   found in a PEM or DER input, is expanded. Curves OpenSSL cannot decompress fail with
   `Cannot decompress the public key point on <curve>: …` instead of a generic error.

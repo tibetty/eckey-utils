@@ -115,7 +115,7 @@ function encodeSpki(curve: CurveName, pk: Buffer): Buffer {
   return encodeTlv(TAG.sequence, Buffer.concat([algorithm, encodeBitString(pk)]));
 }
 
-const UNCOMPRESSED_POINT_ERROR = 'Only uncompressed public keys are supported';
+const POINT_PREFIX_ERROR = 'Public key must be an uncompressed (04) or compressed (02/03) EC point';
 
 /**
  * Return `pk` as an uncompressed point (`04 || x || y`).
@@ -129,7 +129,7 @@ export function toUncompressedPoint(curve: CurveName, pk: Buffer): Buffer {
     return pk;
   }
   if ((pk[0] !== 0x02 && pk[0] !== 0x03) || pk.length % 2 === 0) {
-    throw new Error(UNCOMPRESSED_POINT_ERROR);
+    throw new Error(POINT_PREFIX_ERROR);
   }
   try {
     const jwk = createPublicKey({ key: encodeSpki(curve, pk), format: 'der', type: 'spki' }).export(
