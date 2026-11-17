@@ -17,6 +17,7 @@ import {
   encodeSmallInteger,
   encodeTlv,
 } from './asn1.js';
+import { createPublicKey } from 'node:crypto';
 import { curveFromOid, CURVE_OIDS, type CurveName } from './curves.js';
 
 /** OID of the `id-ecPublicKey` algorithm (RFC 5480). */
@@ -60,7 +61,9 @@ export function encodePrivateKeyDer(
   const parameters = withParameters
     ? encodeTlv(TAG.context0, encodeOid(CURVE_OIDS[curve]))
     : Buffer.alloc(0);
-  const publicKey = pk ? encodeTlv(TAG.context1, encodeBitString(pk)) : Buffer.alloc(0);
+  const publicKey = pk
+    ? encodeTlv(TAG.context1, encodeBitString(toUncompressedPoint(curve, pk)))
+    : Buffer.alloc(0);
   return encodeTlv(
     TAG.sequence,
     Buffer.concat([
@@ -100,11 +103,47 @@ export function encodePkcs8Der(curve: CurveName, sk: Buffer, pk?: Buffer): Buffe
  * @param pk    Raw public key.
  */
 export function encodePublicKeyDer(curve: CurveName, pk: Buffer): Buffer {
+  return encodeSpki(curve, toUncompressedPoint(curve, pk));
+}
+
+/** `SubjectPublicKeyInfo` around `pk`, with no point normalisation. */
+function encodeSpki(curve: CurveName, pk: Buffer): Buffer {
   const algorithm = encodeTlv(
     TAG.sequence,
     Buffer.concat([ID_EC_PUBLIC_KEY, encodeOid(CURVE_OIDS[curve])])
   );
   return encodeTlv(TAG.sequence, Buffer.concat([algorithm, encodeBitString(pk)]));
+}
+
+const UNCOMPRESSED_POINT_ERROR = 'Only uncompressed public keys are supported';
+
+/**
+ * Return `pk` as an uncompressed point (`04 || x || y`).
+ *
+ * A compressed point (SEC 1 v2 section 2.3.3, `02 || x` or `03 || x`) is
+ * decompressed by OpenSSL through `node:crypto`, so the library carries no
+ * field arithmetic of its own.
+ */
+export function toUncompressedPoint(curve: CurveName, pk: Buffer): Buffer {
+  if (pk[0] === 0x04) {
+    return pk;
+  }
+  if ((pk[0] !== 0x02 && pk[0] !== 0x03) || pk.length % 2 === 0) {
+    throw new Error(UNCOMPRESSED_POINT_ERROR);
+  }
+  try {
+    const jwk = createPublicKey({ key: encodeSpki(curve, pk), format: 'der', type: 'spki' }).export(
+      { format: 'jwk' }
+    ) as { x: string; y: string };
+    const coordinates = [jwk.x, jwk.y].map((value) =>
+      Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
+    );
+    return Buffer.concat([Buffer.from([0x04]), ...coordinates]);
+  } catch (error) {
+    throw new Error(`Cannot decompress the public key point on ${curve}: ${String(error)}`, {
+      cause: error,
+    });
+  }
 }
 
 const INVALID_PRIVATE_KEY = 'Invalid DER encoding of ECPrivateKey';
@@ -217,7 +256,7 @@ export function decodePrivateKeyDer(buf: Buffer): KeyInfo {
   }
   const info: KeyInfo = { curveName: parsed.curveName, privateKey: parsed.privateKey };
   if (parsed.publicKey) {
-    info.publicKey = parsed.publicKey;
+    info.publicKey = toUncompressedPoint(parsed.curveName, parsed.publicKey);
   }
   return info;
 }
@@ -275,7 +314,7 @@ export function decodePkcs8Der(buf: Buffer): KeyInfo {
   const info: KeyInfo = { curveName, privateKey: parsed.privateKey };
   const publicKey = parsed.publicKey ?? outerPublicKey;
   if (publicKey) {
-    info.publicKey = publicKey;
+    info.publicKey = toUncompressedPoint(curveName, publicKey);
   }
   return info;
 }
@@ -341,7 +380,10 @@ export function decodePublicKeyDer(buf: Buffer): KeyInfo {
   if (bitString.end !== sequence.end) {
     throw error;
   }
-  return { curveName: curve, publicKey: buf.subarray(bitString.start + 1, bitString.end) };
+  return {
+    curveName: curve,
+    publicKey: toUncompressedPoint(curve, buf.subarray(bitString.start + 1, bitString.end)),
+  };
 }
 
 /** Wrap DER content in a PEM block, base64 lines of 64 characters. */

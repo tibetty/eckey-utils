@@ -218,13 +218,6 @@ describe('JWK validation', () => {
     );
   });
 
-  it('rejects compressed public keys', () => {
-    const compressed = Buffer.concat([Buffer.from([0x02]), pk.subarray(1, 33)]);
-    expect(() => generateJwk('prime256v1', { pk: compressed })).toThrow(
-      'Only uncompressed public keys are supported'
-    );
-  });
-
   it('rejects a non-EC key', () => {
     expect(() =>
       parseJwk({ kty: 'RSA', crv: 'P-256', x: 'a', y: 'b' } as unknown as never)
