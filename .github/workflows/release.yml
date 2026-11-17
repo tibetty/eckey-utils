@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or newer; Node 22 ships an older major.
+      - name: Install a current npm
+        run: npm install --global npm@latest
+      - run: npm ci
+      - name: Check the tag matches the package version
+        run: |
+          expected="v$(node --print 'require("./package.json").version')"
+          if [ "${expected}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${expected}" >&2
+            exit 1
+          fi
+      - name: Full gate
+        run: npm run check
+      # No token: npm authenticates through the OIDC identity of this workflow,
+      # and the attestation is published alongside the tarball.
+      - name: Publish
+        run: npm publish --provenance --access public
+      - name: Open the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists"
+          else
+            gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes --verify-tag
+          fi

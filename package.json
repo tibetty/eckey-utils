@@ -60,6 +60,10 @@
   ],
   "author": "tibetty <xihua.duan@gmail.com>",
   "license": "ISC",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tibetty/eckey-utils.git"

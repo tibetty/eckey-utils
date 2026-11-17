@@ -70,12 +70,55 @@ error **types** are: every failure is a plain `Error`.
 
 ## Releases
 
-Maintainer only, and only from a green `master`:
+Maintainer only, published from CI so every tarball carries a provenance attestation.
 
-1. Update `version` in `package.json` and move the `## [Unreleased]` entries in `CHANGELOG.md` under
-   the new version heading, with the release date.
-2. `npm run check` — \`prepublishOnly\` runs \`npm run check:release\`, the same gate without the
-   packaging checks (\`attw --pack\` runs its own \`npm pack\`, which cannot start inside
-   \`npm publish\`). Run \`npm run check\` yourself first; CI covers the packaging checks on every
-   pull request.
-3. `npm publish`, then `git tag v<version> && git push --follow-tags`.
+### One-time setup on npm
+
+1. Open the package on npmjs.com, then **Settings → Trusted publishing → Add a publisher**:
+   - repository: `tibetty/eckey-utils`
+   - workflow: `release.yml`
+   - environment: leave empty
+2. **Settings → Publishing access**: require two-factor authentication. Trusted publishing needs no
+   token, so do not keep a long-lived publish token unless you want the fallback below.
+3. Access level stays **public**; `publishConfig` in `package.json` states that explicitly, together
+   with the registry.
+
+### Cutting a release
+
+1. Move the `## [Unreleased]` entries in `CHANGELOG.md` under a new version heading and bump
+   `version` in `package.json` to match.
+2. Merge to `master` and wait for CI to be green.
+3. Tag and push:
+
+   ```bash
+   git tag -a v<version> -m v<version>
+   git push origin v<version>
+   ```
+
+4. The `Release` workflow verifies that the tag matches `package.json`, runs `npm run check`, and
+   publishes with `--provenance --access public` through the workflow's own OIDC identity. No secret
+   is involved.
+
+### Re-publishing an existing tag
+
+The workflow runs on the tag push, so a tag that predates it has to be pushed again:
+
+```bash
+git push origin :refs/tags/v1.0.0
+git tag -a v1.0.0 -m v1.0.0
+git push origin v1.0.0
+```
+
+### Fallback: publishing from a workstation
+
+When CI cannot be used, refresh the token and publish by hand:
+
+```bash
+npm run check    # includes the packaging checks
+npm login
+npm publish --otp <code>
+```
+
+`prepublishOnly` runs `npm run check:release`, the same gate without `publint`/`attw`, because
+`attw --pack` starts an `npm pack` that cannot run inside `npm publish`. Such a tarball has no
+provenance attestation, so prefer the workflow.
