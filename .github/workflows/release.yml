@@ -14,13 +14,15 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      # Trusted publishing needs Node >= 22.14; no package-manager cache in
+      # release builds, so the tarball is built from a clean install.
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
           registry-url: https://registry.npmjs.org
-      # Trusted publishing needs npm 11.5.1 or newer; Node 22 ships an older major.
+          package-manager-cache: false
+      # Trusted publishing needs npm 11.5.1 or newer, which Node 24 does not ship yet.
       - name: Install a current npm
         run: npm install --global npm@latest
       - run: npm ci
