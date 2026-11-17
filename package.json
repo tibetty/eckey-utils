@@ -38,7 +38,8 @@
     "check:package": "publint && attw --pack .",
     "check:dist": "node scripts/check-dist.mjs",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run coverage && npm run build && npm run check:dist && npm run check:package",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "npm run check:release",
+    "check:release": "npm run typecheck && npm run lint && npm run format:check && npm run coverage && npm run build && npm run check:dist"
   },
   "keywords": [
     "ec",
