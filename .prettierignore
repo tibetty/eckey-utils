@@ -1,0 +1,4 @@
+# Generated and tool-managed files keep their own formatting.
+package-lock.json
+dist/
+coverage/

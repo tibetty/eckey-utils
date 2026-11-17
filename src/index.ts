@@ -6,27 +6,27 @@
  * and parse key material back out of the encodings.
  */
 import {
-  decodeAnyPrivateKeyDer,
-  decodePkcs8Der,
-  decodePrivateKeyDer,
-  decodePublicKeyDer,
-  encodePkcs8Der,
-  encodePrivateKeyDer,
-  encodePublicKeyDer,
-  fromPem,
-  PEM_LABELS,
-  toPem,
-  type KeyInfo,
+    decodeAnyPrivateKeyDer,
+    decodePkcs8Der,
+    decodePrivateKeyDer,
+    decodePublicKeyDer,
+    encodePkcs8Der,
+    encodePrivateKeyDer,
+    encodePublicKeyDer,
+    fromPem,
+    PEM_LABELS,
+    toPem,
+    type KeyInfo,
 } from './der.js';
 import { CURVE_KEY_BYTES, resolveCurveName, type CurveName } from './curves.js';
 import {
-  decodeOkpJwk,
-  encodeOkpJwk,
-  isOkpCurveName,
-  type OkpCurveName,
-  type OkpJsonWebKey,
-  type OkpKeyInfo,
-  type OkpKeyPair,
+    decodeOkpJwk,
+    encodeOkpJwk,
+    isOkpCurveName,
+    type OkpCurveName,
+    type OkpJsonWebKey,
+    type OkpKeyInfo,
+    type OkpKeyPair,
 } from './okp.js';
 import { decodeJwk, encodeJwk, type EcJsonWebKey, type JwkKeyPair } from './jwk.js';
 
@@ -39,24 +39,24 @@ export { CURVE_NAMES, CURVE_OIDS, CURVE_KEY_BYTES, ANSI_CURVES } from './curves.
 
 /** Raw key material. `sk`/`pk` are the short aliases of `privateKey`/`publicKey`. */
 export interface RawKeyMaterial {
-  /** Raw EC private key (`d`). */
-  sk?: Buffer | undefined;
-  /** Raw EC private key (`d`); alias of {@link RawKeyMaterial.sk}. */
-  privateKey?: Buffer | undefined;
-  /** Raw uncompressed EC public key (`04 || x || y`). */
-  pk?: Buffer | undefined;
-  /** Raw uncompressed EC public key; alias of {@link RawKeyMaterial.pk}. */
-  publicKey?: Buffer | undefined;
+    /** Raw EC private key (`d`). */
+    sk?: Buffer | undefined;
+    /** Raw EC private key (`d`); alias of {@link RawKeyMaterial.sk}. */
+    privateKey?: Buffer | undefined;
+    /** Raw uncompressed EC public key (`04 || x || y`). */
+    pk?: Buffer | undefined;
+    /** Raw uncompressed EC public key; alias of {@link RawKeyMaterial.pk}. */
+    publicKey?: Buffer | undefined;
 }
 
 /** Curve name aliases accepted in the object form of the generate functions. */
 export interface CurveAliases {
-  /** Curve name; valid in the object form. */
-  crv?: string | undefined;
-  /** Curve name; alias of {@link CurveAliases.crv}. */
-  curve?: string | undefined;
-  /** Curve name; alias of {@link CurveAliases.crv}. */
-  curveName?: string | undefined;
+    /** Curve name; valid in the object form. */
+    crv?: string | undefined;
+    /** Curve name; alias of {@link CurveAliases.crv}. */
+    curve?: string | undefined;
+    /** Curve name; alias of {@link CurveAliases.crv}. */
+    curveName?: string | undefined;
 }
 
 /**
@@ -67,39 +67,39 @@ export type GenerateInput = string | (CurveAliases & RawKeyMaterial);
 
 /** How private keys are encoded by the generate functions. */
 export interface GenerateOptions {
-  /**
-   * Private key encoding: `sec1` (RFC 5915, `EC PRIVATE KEY`, the default) or
-   * `pkcs8` (RFC 5958, `PRIVATE KEY`). Public keys are unaffected.
-   */
-  type?: 'sec1' | 'pkcs8' | undefined;
+    /**
+     * Private key encoding: `sec1` (RFC 5915, `EC PRIVATE KEY`, the default) or
+     * `pkcs8` (RFC 5958, `PRIVATE KEY`). Public keys are unaffected.
+     */
+    type?: 'sec1' | 'pkcs8' | undefined;
 }
 
 /** DER encoded key pair; a member is present only if it was requested. */
 export interface DerKeyPair {
-  privateKey?: Buffer | undefined;
-  publicKey?: Buffer | undefined;
+    privateKey?: Buffer | undefined;
+    publicKey?: Buffer | undefined;
 }
 
 /** PEM encoded key pair; a member is present only if it was requested. */
 export interface PemKeyPair {
-  privateKey?: string | undefined;
-  publicKey?: string | undefined;
+    privateKey?: string | undefined;
+    publicKey?: string | undefined;
 }
 
 const RAW_KEY_TYPE_ERROR = 'Only supports raw keys in Buffer';
 
 function resolveKeyType(options?: GenerateOptions): 'sec1' | 'pkcs8' {
-  const type = options?.type ?? 'sec1';
-  if (type !== 'sec1' && type !== 'pkcs8') {
-    throw new Error(`Unsupported private key type: ${String(type)}`);
-  }
-  return type;
+    const type = options?.type ?? 'sec1';
+    if (type !== 'sec1' && type !== 'pkcs8') {
+        throw new Error(`Unsupported private key type: ${String(type)}`);
+    }
+    return type;
 }
 
 interface NormalizedArgs {
-  curve: unknown;
-  privateKey: Buffer | undefined;
-  publicKey: Buffer | undefined;
+    curve: unknown;
+    privateKey: Buffer | undefined;
+    publicKey: Buffer | undefined;
 }
 
 /**
@@ -109,14 +109,14 @@ interface NormalizedArgs {
  * instead of claiming the curve was omitted.
  */
 function normalizeArgs(input: GenerateInput, keys?: RawKeyMaterial): NormalizedArgs {
-  const objectForm = input !== null && typeof input === 'object';
-  const fromInput: RawKeyMaterial & CurveAliases = objectForm ? input : {};
-  const curve = objectForm
-    ? (fromInput.crv ?? fromInput.curve ?? fromInput.curveName)
-    : (input as unknown);
-  const privateKey = fromInput.sk || fromInput.privateKey || keys?.sk || keys?.privateKey;
-  const publicKey = fromInput.pk || fromInput.publicKey || keys?.pk || keys?.publicKey;
-  return { curve, privateKey, publicKey };
+    const objectForm = input !== null && typeof input === 'object';
+    const fromInput: RawKeyMaterial & CurveAliases = objectForm ? input : {};
+    const curve = objectForm
+        ? (fromInput.crv ?? fromInput.curve ?? fromInput.curveName)
+        : (input as unknown);
+    const privateKey = fromInput.sk || fromInput.privateKey || keys?.sk || keys?.privateKey;
+    const publicKey = fromInput.pk || fromInput.publicKey || keys?.pk || keys?.publicKey;
+    return { curve, privateKey, publicKey };
 }
 
 /**
@@ -129,52 +129,55 @@ function normalizeArgs(input: GenerateInput, keys?: RawKeyMaterial): NormalizedA
  * point of another.
  */
 function checkKeyLengths(curveName: CurveName, privateKey?: Buffer, publicKey?: Buffer): void {
-  const keyBytes = CURVE_KEY_BYTES[curveName];
-  if (privateKey && privateKey.length > keyBytes) {
-    throw new Error(
-      `Private key length ${privateKey.length} does not match curve ${curveName} (expected at most ${keyBytes})`
-    );
-  }
-  if (!publicKey) {
-    return;
-  }
-  const compressed = 1 + keyBytes;
-  const uncompressed = 1 + 2 * keyBytes;
-  const expected =
-    publicKey[0] === 0x04
-      ? uncompressed
-      : publicKey[0] === 0x02 || publicKey[0] === 0x03
-        ? compressed
-        : undefined;
-  if (expected !== undefined && publicKey.length !== expected) {
-    throw new Error(
-      `Public key length ${publicKey.length} does not match curve ${curveName} ` +
-        `(expected ${uncompressed} for an uncompressed point, ${compressed} for a compressed one)`
-    );
-  }
+    const keyBytes = CURVE_KEY_BYTES[curveName];
+    if (privateKey && privateKey.length > keyBytes) {
+        throw new Error(
+            `Private key length ${privateKey.length} does not match curve ${curveName} (expected at most ${keyBytes})`
+        );
+    }
+    if (!publicKey) {
+        return;
+    }
+    const compressed = 1 + keyBytes;
+    const uncompressed = 1 + 2 * keyBytes;
+    const expected =
+        publicKey[0] === 0x04
+            ? uncompressed
+            : publicKey[0] === 0x02 || publicKey[0] === 0x03
+              ? compressed
+              : undefined;
+    if (expected !== undefined && publicKey.length !== expected) {
+        throw new Error(
+            `Public key length ${publicKey.length} does not match curve ${curveName} ` +
+                `(expected ${uncompressed} for an uncompressed point, ${compressed} for a compressed one)`
+        );
+    }
 }
 
 /** Require at least one key, and require both to be `Buffer`s. */
 function assertRawKeys(privateKey: Buffer | undefined, publicKey: Buffer | undefined): void {
-  if (!privateKey && !publicKey) {
-    throw new Error('Either privateKey or publicKey is required');
-  }
-  if ((privateKey && !Buffer.isBuffer(privateKey)) || (publicKey && !Buffer.isBuffer(publicKey))) {
-    throw new Error(RAW_KEY_TYPE_ERROR);
-  }
+    if (!privateKey && !publicKey) {
+        throw new Error('Either privateKey or publicKey is required');
+    }
+    if (
+        (privateKey && !Buffer.isBuffer(privateKey)) ||
+        (publicKey && !Buffer.isBuffer(publicKey))
+    ) {
+        throw new Error(RAW_KEY_TYPE_ERROR);
+    }
 }
 
 /** Validate the curve name and key material shared by the EC generate functions. */
 function resolveArgs(normalized: NormalizedArgs): {
-  curveName: CurveName;
-  privateKey: Buffer | undefined;
-  publicKey: Buffer | undefined;
+    curveName: CurveName;
+    privateKey: Buffer | undefined;
+    publicKey: Buffer | undefined;
 } {
-  const { curve, privateKey, publicKey } = normalized;
-  const curveName = resolveCurveName(curve);
-  assertRawKeys(privateKey, publicKey);
-  checkKeyLengths(curveName, privateKey, publicKey);
-  return { curveName, privateKey, publicKey };
+    const { curve, privateKey, publicKey } = normalized;
+    const curveName = resolveCurveName(curve);
+    assertRawKeys(privateKey, publicKey);
+    checkKeyLengths(curveName, privateKey, publicKey);
+    return { curveName, privateKey, publicKey };
 }
 
 /**
@@ -193,23 +196,23 @@ function resolveArgs(normalized: NormalizedArgs): {
  * ```
  */
 export function generateDer(
-  input: GenerateInput,
-  keys?: RawKeyMaterial,
-  options?: GenerateOptions
+    input: GenerateInput,
+    keys?: RawKeyMaterial,
+    options?: GenerateOptions
 ): DerKeyPair {
-  const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
-  const type = resolveKeyType(options);
-  const result: DerKeyPair = {};
-  if (privateKey) {
-    result.privateKey =
-      type === 'pkcs8'
-        ? encodePkcs8Der(curveName, privateKey, publicKey)
-        : encodePrivateKeyDer(curveName, privateKey, publicKey);
-  }
-  if (publicKey) {
-    result.publicKey = encodePublicKeyDer(curveName, publicKey);
-  }
-  return result;
+    const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
+    const type = resolveKeyType(options);
+    const result: DerKeyPair = {};
+    if (privateKey) {
+        result.privateKey =
+            type === 'pkcs8'
+                ? encodePkcs8Der(curveName, privateKey, publicKey)
+                : encodePrivateKeyDer(curveName, privateKey, publicKey);
+    }
+    if (publicKey) {
+        result.publicKey = encodePublicKeyDer(curveName, publicKey);
+    }
+    return result;
 }
 
 /**
@@ -227,25 +230,25 @@ export function generateDer(
  * ```
  */
 export function generatePem(
-  input: GenerateInput,
-  keys?: RawKeyMaterial,
-  options?: GenerateOptions
+    input: GenerateInput,
+    keys?: RawKeyMaterial,
+    options?: GenerateOptions
 ): PemKeyPair {
-  const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
-  const type = resolveKeyType(options);
-  const result: PemKeyPair = {};
-  if (privateKey) {
-    const tag = type === 'pkcs8' ? PEM_LABELS.pkcs8 : PEM_LABELS.privateKey;
-    const der =
-      type === 'pkcs8'
-        ? encodePkcs8Der(curveName, privateKey, publicKey)
-        : encodePrivateKeyDer(curveName, privateKey, publicKey);
-    result.privateKey = toPem(tag, der);
-  }
-  if (publicKey) {
-    result.publicKey = toPem(PEM_LABELS.publicKey, encodePublicKeyDer(curveName, publicKey));
-  }
-  return result;
+    const { curveName, privateKey, publicKey } = resolveArgs(normalizeArgs(input, keys));
+    const type = resolveKeyType(options);
+    const result: PemKeyPair = {};
+    if (privateKey) {
+        const tag = type === 'pkcs8' ? PEM_LABELS.pkcs8 : PEM_LABELS.privateKey;
+        const der =
+            type === 'pkcs8'
+                ? encodePkcs8Der(curveName, privateKey, publicKey)
+                : encodePrivateKeyDer(curveName, privateKey, publicKey);
+        result.privateKey = toPem(tag, der);
+    }
+    if (publicKey) {
+        result.publicKey = toPem(PEM_LABELS.publicKey, encodePublicKeyDer(curveName, publicKey));
+    }
+    return result;
 }
 
 /**
@@ -253,12 +256,12 @@ export function generatePem(
  * `PrivateKeyInfo` (RFC 5958). The two are told apart by their version number.
  */
 export function parseSkDer(der: Buffer): KeyInfo {
-  return decodeAnyPrivateKeyDer(der);
+    return decodeAnyPrivateKeyDer(der);
 }
 
 /** Parse a `SubjectPublicKeyInfo` (RFC 5480) DER buffer. */
 export function parsePkDer(der: Buffer): KeyInfo {
-  return decodePublicKeyDer(der);
+    return decodePublicKeyDer(der);
 }
 
 /**
@@ -269,22 +272,22 @@ export function parsePkDer(der: Buffer): KeyInfo {
  * curve name plus raw keys.
  */
 export function parsePem(pem: string): KeyInfo {
-  if (!pem) {
-    throw new Error('PEM content is not optional');
-  }
-  const { tag, der } = fromPem(pem);
-  if (tag === PEM_LABELS.privateKey) {
-    return decodePrivateKeyDer(der);
-  }
-  if (tag === PEM_LABELS.pkcs8) {
-    return decodePkcs8Der(der);
-  }
-  if (tag === PEM_LABELS.publicKey) {
-    return decodePublicKeyDer(der);
-  }
-  throw new Error(
-    `Unsupported PEM label "${tag}": expected "${PEM_LABELS.privateKey}", "${PEM_LABELS.pkcs8}" or "${PEM_LABELS.publicKey}"`
-  );
+    if (!pem) {
+        throw new Error('PEM content is not optional');
+    }
+    const { tag, der } = fromPem(pem);
+    if (tag === PEM_LABELS.privateKey) {
+        return decodePrivateKeyDer(der);
+    }
+    if (tag === PEM_LABELS.pkcs8) {
+        return decodePkcs8Der(der);
+    }
+    if (tag === PEM_LABELS.publicKey) {
+        return decodePublicKeyDer(der);
+    }
+    throw new Error(
+        `Unsupported PEM label "${tag}": expected "${PEM_LABELS.privateKey}", "${PEM_LABELS.pkcs8}" or "${PEM_LABELS.publicKey}"`
+    );
 }
 
 /**
@@ -298,13 +301,13 @@ export function parsePem(pem: string): KeyInfo {
 export function generateJwk(curve: OkpCurveName, keys?: RawKeyMaterial): OkpKeyPair;
 export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair;
 export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair | OkpKeyPair {
-  const normalized = normalizeArgs(input, keys);
-  if (isOkpCurveName(normalized.curve)) {
-    assertRawKeys(normalized.privateKey, normalized.publicKey);
-    return encodeOkpJwk(normalized.curve, normalized.privateKey, normalized.publicKey);
-  }
-  const { curveName, privateKey, publicKey } = resolveArgs(normalized);
-  return encodeJwk(curveName, privateKey, publicKey);
+    const normalized = normalizeArgs(input, keys);
+    if (isOkpCurveName(normalized.curve)) {
+        assertRawKeys(normalized.privateKey, normalized.publicKey);
+        return encodeOkpJwk(normalized.curve, normalized.privateKey, normalized.publicKey);
+    }
+    const { curveName, privateKey, publicKey } = resolveArgs(normalized);
+    return encodeJwk(curveName, privateKey, publicKey);
 }
 
 /**
@@ -315,7 +318,7 @@ export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKey
 export function parseJwk(jwk: OkpJsonWebKey): OkpKeyInfo;
 export function parseJwk(jwk: EcJsonWebKey): KeyInfo;
 export function parseJwk(jwk: EcJsonWebKey | OkpJsonWebKey): KeyInfo | OkpKeyInfo {
-  return jwk && jwk.kty === 'OKP' ? decodeOkpJwk(jwk) : decodeJwk(jwk as EcJsonWebKey);
+    return jwk && jwk.kty === 'OKP' ? decodeOkpJwk(jwk) : decodeJwk(jwk as EcJsonWebKey);
 }
 
 /**
@@ -326,13 +329,13 @@ export function parseJwk(jwk: EcJsonWebKey | OkpJsonWebKey): KeyInfo | OkpKeyInf
  * keeps working after the move to named exports.
  */
 const ecKeyUtils = {
-  generateDer,
-  generateJwk,
-  generatePem,
-  parseJwk,
-  parsePem,
-  parsePkDer,
-  parseSkDer,
+    generateDer,
+    generateJwk,
+    generatePem,
+    parseJwk,
+    parsePem,
+    parsePkDer,
+    parseSkDer,
 };
 
 export default ecKeyUtils;
