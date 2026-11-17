@@ -15,7 +15,7 @@ into raw keys.
 - Zero runtime dependencies, Node's own `Buffer` only.
 - ESM and CommonJS builds with bundled TypeScript types.
 - 79 named curves: NIST, SEC 2 prime and binary, Brainpool, ANSI X9.62 and WAP WSG.
-- JWK support for P-256, P-384 and P-521.
+- JWK support for P-256, P-384, P-521 and secp256k1.
 
 ## Install
 
@@ -108,9 +108,10 @@ const { privateKey, publicKey } = generateJwk('P-256', { sk, pk });
 parseJwk(privateKey); // back to { curveName, privateKey, publicKey }
 ```
 
-JWK covers P-256, P-384 and P-521 only, because those are the curves RFC 7518 registers for JWK
-use. A private JWK needs the raw public key as well: RFC 7518 requires `x` and `y` next to `d`, and
-`x`/`y` cannot be derived from `d` without EC point arithmetic.
+JWK covers the curves with a registered `crv` value: P-256, P-384 and P-521 (RFC 7518) plus
+secp256k1 (RFC 8812). A private JWK needs the raw public key as well: those RFCs require `x` and `y`
+next to `d`, and `x`/`y` cannot be derived from `d` without EC point arithmetic.
+Pass the curve either as the Node name (`secp256k1`) or as the JWK name (`P-256`).
 
 ### Errors
 

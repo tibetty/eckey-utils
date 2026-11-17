@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- JWK support for `secp256k1` (RFC 8812 `crv` value) in `generateJwk()` and `parseJwk()`. The curve
+  already worked for PEM and DER; only the JWK path was refused. Output is accepted by
+  `crypto.createPrivateKey({ format: 'jwk' })`.
+- The JWK curve error now names every supported curve, derived from the curve table.
+
 ## [1.0.0] - 2026-11-17
 
 This release rewrites the package in TypeScript and fixes a set of input-handling bugs. Existing

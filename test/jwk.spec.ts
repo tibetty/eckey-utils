@@ -9,13 +9,14 @@ const MESSAGE = Buffer.from('Hello, World!');
 const toNodeKey = (jwk: EcJsonWebKey) => ({ key: jwk, format: 'jwk' }) as unknown;
 const privateKeyInput = toNodeKey as (jwk: EcJsonWebKey) => Parameters<typeof createPrivateKey>[0];
 const publicKeyInput = toNodeKey as (jwk: EcJsonWebKey) => Parameters<typeof createPublicKey>[0];
-const JWK_CURVES = [
+const JWK_CURVE_CASES = [
   ['prime256v1', 'P-256'],
   ['secp384r1', 'P-384'],
   ['secp521r1', 'P-521'],
+  ['secp256k1', 'secp256k1'],
 ] as const;
 
-describe.each(JWK_CURVES)('curve %s', (curve, ansiName) => {
+describe.each(JWK_CURVE_CASES)('curve %s', (curve, ansiName) => {
   const { sk, pk } = generateRawKeyPair(curve);
 
   it('builds private and public JWKs', () => {

@@ -187,8 +187,8 @@ export function parsePem(pem: string): KeyInfo {
 /**
  * Build JWKs from raw keys.
  *
- * Supported curves are P-256, P-384 and P-521. A private JWK needs the raw
- * public key as well, since RFC 7518 requires `x` and `y` next to `d`.
+ * Supported curves are P-256, P-384, P-521 and secp256k1. A private JWK needs
+ * the raw public key as well, since RFC 7518 requires `x` and `y` next to `d`.
  */
 export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair {
   const { curveName, privateKey, publicKey } = resolveArgs(input, keys);
