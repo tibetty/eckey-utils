@@ -8,12 +8,15 @@
 import {
     decodeAnyPrivateKeyDer,
     decodePkcs8Der,
+    decryptPrivateKey,
     decodePrivateKeyDer,
     decodePublicKeyDer,
     encodePkcs8Der,
     encodePrivateKeyDer,
     encodePublicKeyDer,
     fromPem,
+    isEncryptedDer,
+    isEncryptedPem,
     PEM_LABELS,
     toPem,
     type KeyInfo,
@@ -64,6 +67,16 @@ export interface CurveAliases {
  * material, or a single object carrying both.
  */
 export type GenerateInput = string | (CurveAliases & RawKeyMaterial);
+
+/** How an encrypted private key is opened. */
+export interface ParseOptions {
+    /**
+     * Passphrase of an encrypted private key, `string` or `Buffer`.
+     *
+     * Ignored for unencrypted input, so one code path can read both kinds.
+     */
+    passphrase?: string | Buffer | undefined;
+}
 
 /** How private keys are encoded by the generate functions. */
 export interface GenerateOptions {
@@ -252,10 +265,18 @@ export function generatePem(
 }
 
 /**
- * Parse a private key DER buffer: `ECPrivateKey` (RFC 5915) or PKCS#8
- * `PrivateKeyInfo` (RFC 5958). The two are told apart by their version number.
+ * Parse a private key DER buffer: `ECPrivateKey` (RFC 5915), PKCS#8
+ * `PrivateKeyInfo` (RFC 5958) or encrypted PKCS#8, told apart by structure.
+ *
+ * Encrypted input needs `{ passphrase }`.
  */
-export function parseSkDer(der: Buffer): KeyInfo {
+export function parseSkDer(der: Buffer, options?: ParseOptions): KeyInfo {
+    if (isEncryptedDer(der)) {
+        if (!options || options.passphrase === undefined) {
+            throw new Error('Encrypted PKCS#8 requires a passphrase');
+        }
+        return decodePrivateKeyDer(decryptPrivateKey(der, 'der', options.passphrase));
+    }
     return decodeAnyPrivateKeyDer(der);
 }
 
@@ -269,11 +290,17 @@ export function parsePkDer(der: Buffer): KeyInfo {
  *
  * Handles `EC PRIVATE KEY` (RFC 5915), `PRIVATE KEY` (PKCS#8, RFC 5958) and
  * `PUBLIC KEY` (RFC 5480) blocks, with LF or CRLF line endings, and returns the
- * curve name plus raw keys.
+ * curve name plus raw keys. Pass `{ passphrase }` to read an encrypted key.
  */
-export function parsePem(pem: string): KeyInfo {
+export function parsePem(pem: string, options?: ParseOptions): KeyInfo {
     if (!pem) {
         throw new Error('PEM content is not optional');
+    }
+    if (isEncryptedPem(pem)) {
+        if (!options || options.passphrase === undefined) {
+            throw new Error('Encrypted PEM requires a passphrase');
+        }
+        return decodePrivateKeyDer(decryptPrivateKey(pem, 'pem', options.passphrase));
     }
     const { tag, der } = fromPem(pem);
     if (tag === PEM_LABELS.privateKey) {

@@ -198,12 +198,10 @@ describe('PEM validation', () => {
     });
 
     it('names the unsupported PEM label', () => {
-        const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-        const encryptedPkcs8 = privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
-        expect(() =>
-            parsePem(encryptedPkcs8.replaceAll('PRIVATE KEY', 'ENCRYPTED PRIVATE KEY'))
-        ).toThrow(
-            'Unsupported PEM label "ENCRYPTED PRIVATE KEY": expected "EC PRIVATE KEY", "PRIVATE KEY" or "PUBLIC KEY"'
+        const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 1024 });
+        const rsaPem = privateKey.export({ format: 'pem', type: 'pkcs1' }).toString();
+        expect(() => parsePem(rsaPem)).toThrow(
+            'Unsupported PEM label "RSA PRIVATE KEY": expected "EC PRIVATE KEY", "PRIVATE KEY" or "PUBLIC KEY"'
         );
     });
 

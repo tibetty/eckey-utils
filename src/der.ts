@@ -17,7 +17,7 @@ import {
     encodeSmallInteger,
     encodeTlv,
 } from './asn1.js';
-import { createPublicKey } from 'node:crypto';
+import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { curveFromOid, CURVE_OIDS, type CurveName } from './curves.js';
 
 /** OID of the `id-ecPublicKey` algorithm (RFC 5480). */
@@ -397,6 +397,64 @@ export function toPem(tag: string, der: Buffer): string {
 const PEM_BLOCK = /^\s*-----BEGIN ([A-Z0-9 ]+)-----\r?\n([\s\S]+?)\r?\n-----END \1-----\s*$/;
 
 /**
+ * Whether a PEM string holds an encrypted private key.
+ *
+ * Covers both containers: PKCS#8 `ENCRYPTED PRIVATE KEY` and the legacy
+ * `EC PRIVATE KEY` block with `Proc-Type: 4,ENCRYPTED` headers.
+ */
+export function isEncryptedPem(pem: string): boolean {
+    return (
+        /-----BEGIN ENCRYPTED PRIVATE KEY-----/.test(pem) ||
+        /^Proc-Type:\s*4,\s*ENCRYPTED/m.test(pem)
+    );
+}
+
+/**
+ * Whether a DER buffer is a PKCS#8 `EncryptedPrivateKeyInfo`.
+ *
+ * It is a SEQUENCE of an AlgorithmIdentifier and an OCTET STRING, with no
+ * version INTEGER — which distinguishes it from SEC1 and from plain PKCS#8.
+ */
+export function isEncryptedDer(der: Buffer): boolean {
+    try {
+        const sequence = decodeTlv(der, 0);
+        return sequence.tag === TAG.sequence && decodeTlv(der, sequence.start).tag === TAG.sequence;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Decrypt an encrypted private key with OpenSSL and return its SEC1 DER.
+ *
+ * The library never implements PBES2 itself: the passphrase goes to
+ * `crypto.createPrivateKey`, and only the decrypted, unencrypted encoding is
+ * parsed here.
+ */
+export function decryptPrivateKey(
+    input: string | Buffer,
+    format: 'pem' | 'der',
+    passphrase: string | Buffer
+): Buffer {
+    try {
+        // DER carries no label, so the type has to be stated; encrypted DER is
+        // always PKCS#8 EncryptedPrivateKeyInfo.
+        const key =
+            format === 'der'
+                ? createPrivateKey({
+                      key: input as Buffer,
+                      format: 'der',
+                      type: 'pkcs8',
+                      passphrase,
+                  })
+                : createPrivateKey({ key: input as string, format: 'pem', passphrase });
+        return key.export({ format: 'der', type: 'sec1' }) as Buffer;
+    } catch (error) {
+        throw new Error(`Cannot decrypt the private key: ${String(error)}`, { cause: error });
+    }
+}
+
+/**
  * Split a PEM block into its label and DER content.
  *
  * Accepts CRLF line endings, a byte order mark, an indented block and trailing
@@ -408,9 +466,6 @@ export function fromPem(pem: string): { tag: string; der: Buffer } {
     const match = PEM_BLOCK.exec(normalized);
     if (!match) {
         throw new Error('Invalid or unsupported PEM content');
-    }
-    if (/^(Proc-Type|DEK-Info):/m.test(match[2])) {
-        throw new Error('Encrypted PEM is not supported');
     }
     return { tag: match[1], der: Buffer.from(match[2], 'base64') };
 }
