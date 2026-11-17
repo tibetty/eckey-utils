@@ -61,7 +61,7 @@ CommonJS works the same way: `const { generatePem } = require('eckey-utils');`
 
 ## API
 
-### `generatePem(input, keys?)` and `generateDer(input, keys?)`
+### `generatePem(input, keys?, options?)` and `generateDer(input, keys?, options?)`
 
 Encode raw keys. Both accept the same arguments and return a pair that only contains the keys you
 passed in.
@@ -70,35 +70,41 @@ passed in.
 generatePem('prime256v1', { sk, pk }); // { privateKey: '-----BEGIN EC PRIVATE KEY-----…', publicKey: '…' }
 generatePem({ curveName: 'prime256v1', privateKey: sk }); // { privateKey: '…' }
 generateDer('prime256v1', { pk }); // { publicKey: <Buffer 30 59 …> }
+generatePem('prime256v1', { sk, pk }, { type: 'pkcs8' }); // { privateKey: '-----BEGIN PRIVATE KEY-----…' }
 ```
 
-| Argument | Meaning                                                         |
-| -------- | --------------------------------------------------------------- |
-| `input`  | A curve name, or an object carrying the curve name and the keys |
-| `keys`   | Optional key material, used only for keys missing from `input`  |
+| Argument  | Meaning                                                                |
+| --------- | ---------------------------------------------------------------------- |
+| `input`   | A curve name, or an object carrying the curve name and the keys        |
+| `keys`    | Optional key material, used only for keys missing from `input`         |
+| `options` | `{ type: 'sec1' \| 'pkcs8' }` — private key encoding, default `'sec1'` |
 
 Key aliases accepted in either argument: `sk` / `privateKey`, `pk` / `publicKey`. Curve aliases
 accepted in the object form: `curveName` / `curve` / `crv`. A curve name can be the Node name
 (`prime256v1`) or the JWK name (`P-256`).
 
-The private key is encoded as `ECPrivateKey` (RFC 5915) and the public key as
-`SubjectPublicKeyInfo` (RFC 5480). When both are passed, the public key is embedded in the private
-key structure, as OpenSSL does.
+The private key is encoded as `ECPrivateKey` (RFC 5915) by default, or as PKCS#8 `PrivateKeyInfo`
+(RFC 5958) with `{ type: 'pkcs8' }`; the public key is always `SubjectPublicKeyInfo` (RFC 5480).
+When both keys are passed, the public key is embedded in the private key structure, as OpenSSL does.
+Both encodings are byte-identical to what OpenSSL produces for the same key.
 
 ### `parsePem(pem)`
 
-Parse an `EC PRIVATE KEY` or `PUBLIC KEY` block into raw key material:
+Parse an `EC PRIVATE KEY` (RFC 5915), `PRIVATE KEY` (PKCS#8) or `PUBLIC KEY` (RFC 5480) block into
+raw key material:
 
 ```ts
 { curveName: 'prime256v1', privateKey?: Buffer, publicKey?: Buffer }
 ```
 
 LF and CRLF line endings, indented blocks and trailing whitespace are all accepted. A private key
-that was encoded without an embedded public key parses back without `publicKey`.
+that was encoded without an embedded public key parses back without `publicKey`. Encrypted PEM is
+rejected with `Encrypted PEM is not supported` rather than silently misparsed.
 
 ### `parseSkDer(der)` and `parsePkDer(der)`
 
-The DER-only counterparts of `parsePem`, for the same two structures.
+The DER-only counterparts of `parsePem`. `parseSkDer` accepts both private key structures; RFC 5915
+and PKCS#8 are told apart by their version number.
 
 ### `generateJwk(input, keys?)` and `parseJwk(jwk)`
 
@@ -117,14 +123,17 @@ Pass the curve either as the Node name (`secp256k1`) or as the JWK name (`P-256`
 
 Every error is a plain `Error` with a message naming the problem, for example:
 
-| Message                                      | Cause                                        |
-| -------------------------------------------- | -------------------------------------------- |
-| `Curve name is not optional`                 | No curve name was passed                     |
-| `Unsupported elliptic curve: foo`            | The curve is not in the supported list       |
-| `Either privateKey or publicKey is required` | No key material was passed                   |
-| `Only supports raw keys in Buffer`           | Key material is not a `Buffer`               |
-| `Invalid DER encoding of ECPrivateKey`       | Malformed private key DER                    |
-| `Unsupported PEM label "PRIVATE KEY"`        | PKCS#8 PEM, which this library does not read |
+| Message                                      | Cause                                     |
+| -------------------------------------------- | ----------------------------------------- |
+| `Curve name is not optional`                 | No curve name was passed                  |
+| `Unsupported elliptic curve: foo`            | The curve is not in the supported list    |
+| `Either privateKey or publicKey is required` | No key material was passed                |
+| `Only supports raw keys in Buffer`           | Key material is not a `Buffer`            |
+| `Invalid DER encoding of ECPrivateKey`       | Malformed SEC1 private key DER            |
+| `Invalid DER encoding of PrivateKeyInfo`     | Malformed PKCS#8 private key DER          |
+| `Not an EC private key (algorithm OID: …)`   | PKCS#8 holding an RSA, OKP or other key   |
+| `Encrypted PEM is not supported`             | PEM with `Proc-Type: 4,ENCRYPTED` headers |
+| `Unsupported PEM label "…"`                  | A PEM block this library does not handle  |
 
 ## Supported curves
 
@@ -146,13 +155,9 @@ and OpenSSL build you run.
 
 - **Do not reuse one key pair for both ECDH and ECDSA** unless you are certain the risk does not
   apply to you. The original motivation for this library was convenience, not key separation.
-- **PKCS#8 is not supported.** Only `EC PRIVATE KEY` (RFC 5915) and `PUBLIC KEY` (RFC 5480) PEM
-  blocks are read and written. Convert with Node if you have a `PRIVATE KEY` block:
-
-  ```ts
-  import { createPrivateKey } from 'node:crypto';
-  const sec1 = createPrivateKey(pkcs8Pem).export({ format: 'pem', type: 'sec1' });
-  ```
+- **Encrypted and PKCS#1 PEM blocks are not handled.** Encrypted keys, `RSA PRIVATE KEY` blocks and
+  certificates are rejected by name. Decrypt or convert them with Node first, for example
+  `createPrivateKey(pkcs8Pem).export({ format: 'pem', type: 'sec1' })`.
 
 - **Raw keys only.** Keys must be `Buffer`s of the curve's own size; the library does not check that
   a key belongs to the curve you name. Node and OpenSSL reject mismatches when the key is used.
