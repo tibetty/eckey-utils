@@ -11,9 +11,6 @@ import {
 import { decodePkcs8Der } from '../src/der.js';
 import { defined, generateRawKeyPair } from './helpers.js';
 
-const decodeBase64Url = (value: string): Buffer =>
-    Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-
 interface NodeEcJwk {
     crv: string;
     x: string;
@@ -28,11 +25,11 @@ describe.each(['prime256v1', 'secp384r1', 'secp521r1', 'secp256k1'])(
     (curve) => {
         const { privateKey } = generateKeyPairSync('ec', { namedCurve: curve });
         const jwk = privateKey.export({ format: 'jwk' }) as unknown as NodeEcJwk;
-        const sk = decodeBase64Url(jwk.d);
+        const sk = Buffer.from(jwk.d, 'base64url');
         const pk = Buffer.concat([
             Buffer.from([0x04]),
-            decodeBase64Url(jwk.x),
-            decodeBase64Url(jwk.y),
+            Buffer.from(jwk.x, 'base64url'),
+            Buffer.from(jwk.y, 'base64url'),
         ]);
         const pkcs8Pem = privateKey.export({ format: 'pem', type: 'pkcs8' }).toString().trimEnd();
         const pkcs8Der = privateKey.export({ format: 'der', type: 'pkcs8' }) as Buffer;

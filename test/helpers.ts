@@ -83,8 +83,3 @@ export function defined<T>(value: T | undefined, what = 'value'): T {
     }
     return value;
 }
-
-/** base64url encode without padding, as used by JWK. */
-export function base64Url(buf: Buffer): string {
-    return buf.toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
