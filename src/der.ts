@@ -42,6 +42,7 @@ const TAG = {
     sequence: 0x30,
     context0: 0xa0,
     context1: 0xa1,
+    implicit1: 0x81,
 } as const;
 
 /**
@@ -137,7 +138,7 @@ function expectTlv(
     return tlv;
 }
 
-/** Read a named-curve OID TLV that must end within `limit`, and resolve it. */
+/** Read a named-curve OID TLV that must end exactly at `limit`, and resolve it. */
 function readCurveOid(
     buf: Buffer,
     start: number,
@@ -145,7 +146,7 @@ function readCurveOid(
     error: Error
 ): { curve: CurveName } {
     const { start: contentStart, end } = expectTlv(buf, start, TAG.oid, error);
-    if (end > limit) {
+    if (end !== limit) {
         throw error;
     }
     const oid = decodeOid(buf, contentStart, end - contentStart);
@@ -200,16 +201,35 @@ function parseSec1(buf: Buffer, error: Error): Sec1Key {
     return result;
 }
 
-/** Read a `BIT STRING` wrapped in a `[1]` context tag, skipping unused bits. */
+/**
+ * Read the content of a BIT STRING TLV (or one implicitly retagged as `tag`)
+ * holding an EC point: the leading unused-bit count must be 0.
+ */
+function readPointBits(
+    buf: Buffer,
+    start: number,
+    tag: number,
+    error: Error
+): { publicKey: Buffer; end: number } {
+    const bits = expectTlv(buf, start, tag, error);
+    if (bits.end - bits.start < 2 || buf[bits.start] !== 0) {
+        throw error;
+    }
+    return { publicKey: buf.subarray(bits.start + 1, bits.end), end: bits.end };
+}
+
+/** Read the `[1] EXPLICIT BIT STRING` public key of an `ECPrivateKey` (RFC 5915). */
 function readBitString(
     buf: Buffer,
     start: number,
     error: Error
 ): { publicKey: Buffer; next: number } {
     const body = expectTlv(buf, start, TAG.context1, error);
-    const bitString = expectTlv(buf, body.start, TAG.bitString, error);
-    // First content octet is the unused-bit count, always 0 for an EC point.
-    return { publicKey: buf.subarray(bitString.start + 1, bitString.end), next: body.end };
+    const bits = readPointBits(buf, body.start, TAG.bitString, error);
+    if (bits.end !== body.end) {
+        throw error;
+    }
+    return { publicKey: bits.publicKey, next: body.end };
 }
 
 /**
@@ -258,16 +278,17 @@ export function decodePkcs8Der(buf: Buffer): KeyInfo {
     const inner = expectTlv(buf, algorithm.end, TAG.octetString, error);
     const parsed = parseSec1(buf.subarray(inner.start, inner.end), error);
 
-    // OneAsymmetricKey may carry attributes [0] and a public key [1] after the key.
+    // OneAsymmetricKey (RFC 5958) may carry attributes `[0] IMPLICIT SET` and
+    // a public key `[1] IMPLICIT BIT STRING` after the key.
     let pos = inner.end;
     let outerPublicKey: Buffer | undefined;
     while (pos < sequence.end) {
         if (buf[pos] === TAG.context0) {
             pos = expectTlv(buf, pos, TAG.context0, error).end;
-        } else if (buf[pos] === TAG.context1) {
-            const parsedBits = readBitString(buf, pos, error);
-            outerPublicKey = parsedBits.publicKey;
-            pos = parsedBits.next;
+        } else if (buf[pos] === TAG.implicit1) {
+            const bits = readPointBits(buf, pos, TAG.implicit1, error);
+            outerPublicKey = bits.publicKey;
+            pos = bits.end;
         } else {
             throw error;
         }
@@ -344,14 +365,11 @@ export function decodePublicKeyDer(buf: Buffer): KeyInfo {
     }
     const { curve } = readCurveOid(buf, algorithmOid.end, algorithm.end, error);
 
-    const bitString = expectTlv(buf, algorithm.end, TAG.bitString, error);
-    if (bitString.end !== sequence.end) {
+    const bits = readPointBits(buf, algorithm.end, TAG.bitString, error);
+    if (bits.end !== sequence.end) {
         throw error;
     }
-    return {
-        curveName: curve,
-        publicKey: toUncompressedPoint(curve, buf.subarray(bitString.start + 1, bitString.end)),
-    };
+    return { curveName: curve, publicKey: toUncompressedPoint(curve, bits.publicKey) };
 }
 
 /** Wrap DER content in a PEM block, base64 lines of 64 characters. */
@@ -360,7 +378,10 @@ export function toPem(tag: string, der: Buffer): string {
     return `-----BEGIN ${tag}-----\n${body}\n-----END ${tag}-----`;
 }
 
-const PEM_BLOCK = /^\s*-----BEGIN ([A-Z0-9 ]+)-----\r?\n([\s\S]+?)\r?\n-----END \1-----\s*$/;
+const PEM_BLOCK = /-----BEGIN ([A-Z0-9 ]+)-----\r?\n([\s\S]+?)\r?\n-----END \1-----/g;
+
+/** Label of the curve block `openssl ecparam -genkey` writes ahead of the key. */
+const EC_PARAMETERS = 'EC PARAMETERS';
 
 /**
  * Whether a PEM string holds an encrypted private key.
@@ -376,17 +397,22 @@ export function isEncryptedPem(pem: string): boolean {
 }
 
 /**
- * Whether a DER buffer is a PKCS#8 `EncryptedPrivateKeyInfo`.
- *
- * It is a SEQUENCE of an AlgorithmIdentifier and an OCTET STRING, with no
- * version INTEGER — which distinguishes it from SEC1 and from plain PKCS#8.
+ * The structure a DER buffer starting with a SEQUENCE of an AlgorithmIdentifier
+ * holds: PKCS#8 `EncryptedPrivateKeyInfo` follows it with an OCTET STRING,
+ * `SubjectPublicKeyInfo` with a BIT STRING. SEC1 and plain PKCS#8 start with a
+ * version INTEGER instead, and are `undefined` here.
  */
-export function isEncryptedDer(der: Buffer): boolean {
+export function algorithmFirstStructure(der: Buffer): 'encrypted' | 'spki' | undefined {
     try {
         const sequence = decodeTlv(der, 0);
-        return sequence.tag === TAG.sequence && decodeTlv(der, sequence.start).tag === TAG.sequence;
+        const algorithm = decodeTlv(der, sequence.start);
+        if (sequence.tag !== TAG.sequence || algorithm.tag !== TAG.sequence) {
+            return undefined;
+        }
+        const next = decodeTlv(der, algorithm.end).tag;
+        return next === TAG.octetString ? 'encrypted' : next === TAG.bitString ? 'spki' : undefined;
     } catch {
-        return false;
+        return undefined;
     }
 }
 
@@ -448,19 +474,32 @@ export function encryptPrivateKey(
 }
 
 /**
- * Split a PEM block into its label and DER content.
+ * Find the key block in PEM content and split it into its label and DER.
  *
  * Accepts CRLF line endings, a byte order mark, an indented block and trailing
  * whitespace on any line; whitespace inside the base64 body is ignored by the
- * decoder either way.
+ * decoder either way. Text outside the block is ignored (RFC 7468 section 2),
+ * and so is the `EC PARAMETERS` block that `openssl ecparam -genkey` writes
+ * before the key. More than one key block is refused rather than guessed at.
+ *
+ * @returns the label, the decoded body, and the block's own text.
  */
-export function fromPem(pem: string): { tag: string; der: Buffer } {
+export function fromPem(pem: string): { tag: string; der: Buffer; text: string } {
     const normalized = pem.replace(/^\uFEFF/, '').replace(/^[ \t]+|[ \t]+$/gm, '');
-    const match = PEM_BLOCK.exec(normalized);
-    if (!match) {
+    const blocks = [...normalized.matchAll(PEM_BLOCK)];
+    const keys = blocks.filter((block) => block[1] !== EC_PARAMETERS);
+    const candidates = keys.length > 0 ? keys : blocks;
+    if (candidates.length === 0) {
         throw new Error('Invalid or unsupported PEM content');
     }
-    return { tag: match[1], der: Buffer.from(match[2], 'base64') };
+    if (candidates.length > 1) {
+        const labels = candidates.map((block) => block[1]).join(', ');
+        throw new Error(
+            `PEM content holds ${candidates.length} blocks (${labels}); expected one key`
+        );
+    }
+    const [text, tag, body] = candidates[0];
+    return { tag, der: Buffer.from(body, 'base64'), text };
 }
 
 /** PEM labels this library reads and writes. */

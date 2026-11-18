@@ -123,8 +123,10 @@ raw key material:
 ```
 
 LF or CRLF line endings, a UTF-8 BOM, an indented block and trailing whitespace on any line are all
-accepted. A private key that was encoded without an embedded public key parses back without
-`publicKey`. PEM blocks this library does not handle are named in the message.
+accepted, and so is text around the block (RFC 7468) and the `EC PARAMETERS` block that
+`openssl ecparam -genkey` writes ahead of the key. Content holding more than one key block is refused
+rather than guessed at. A private key that was encoded without an embedded public key parses back
+without `publicKey`. PEM blocks this library does not handle are named in the message.
 
 Encrypted private keys are read with a passphrase, for both containers:
 

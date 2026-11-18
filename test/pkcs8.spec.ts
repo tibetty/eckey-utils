@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign, verify } from 'node:crypto';
+import { createPrivateKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { generateDer, generatePem, parsePem, parseSkDer } from '../src/index.js';
 import {
@@ -134,16 +134,38 @@ describe('PKCS#8 parsing', () => {
                     ])
                 ),
                 encodeOctetString(inner),
-                encodeTlv(0xa0, encodeTlv(0x31, Buffer.alloc(0))), // empty attributes
-                encodeTlv(0xa1, encodeBitString(pk)),
+                encodeTlv(0xa0, Buffer.alloc(0)), // attributes [0] IMPLICIT SET, empty
+                encodeTlv(0x81, Buffer.concat([Buffer.alloc(1), pk])), // [1] IMPLICIT BIT STRING
             ])
         );
 
+        // OpenSSL reads the same structure, so the encoding above is the RFC 5958 one.
+        expect(
+            createPrivateKey({ key: oneAsymmetricKey, format: 'der', type: 'pkcs8' })
+                .asymmetricKeyType
+        ).toBe('ec');
         expect(parseSkDer(oneAsymmetricKey)).toEqual({
             curveName: 'prime256v1',
             privateKey: sk,
             publicKey: pk,
         });
+    });
+
+    it('rejects an outer public key with an explicit [1] tag', () => {
+        const explicit = Buffer.concat([
+            encodeSmallInteger(1),
+            encodeTlv(
+                0x30,
+                Buffer.concat([encodeOid('1.2.840.10045.2.1'), encodeOid('1.2.840.10045.3.1.7')])
+            ),
+            encodeOctetString(
+                encodeTlv(0x30, Buffer.concat([encodeSmallInteger(1), encodeOctetString(sk)]))
+            ),
+            encodeTlv(0xa1, encodeBitString(pk)),
+        ]);
+        expect(() => parseSkDer(encodeTlv(0x30, explicit))).toThrow(
+            'Invalid DER encoding of PrivateKeyInfo'
+        );
     });
 
     it('rejects a non-EC private key', () => {

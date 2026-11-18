@@ -16,7 +16,7 @@ import {
     encodePrivateKeyDer,
     encodePublicKeyDer,
     fromPem,
-    isEncryptedDer,
+    algorithmFirstStructure,
     isEncryptedPem,
     PEM_LABELS,
     toPem,
@@ -334,7 +334,11 @@ export function generatePem(
  * Encrypted input needs `{ passphrase }`.
  */
 export function parseSkDer(der: Buffer, options?: ParseOptions): KeyInfo {
-    if (isEncryptedDer(der)) {
+    const structure = algorithmFirstStructure(der);
+    if (structure === 'spki') {
+        throw new Error('Expected a private key, got a SubjectPublicKeyInfo: use parsePkDer');
+    }
+    if (structure === 'encrypted') {
         if (!options || options.passphrase === undefined) {
             throw new Error('Encrypted PKCS#8 requires a passphrase');
         }
@@ -359,13 +363,13 @@ export function parsePem(pem: string, options?: ParseOptions): KeyInfo {
     if (!pem) {
         throw new Error('PEM content is not optional');
     }
-    if (isEncryptedPem(pem)) {
+    const { tag, der, text } = fromPem(pem);
+    if (isEncryptedPem(text)) {
         if (!options || options.passphrase === undefined) {
             throw new Error('Encrypted PEM requires a passphrase');
         }
-        return decodePrivateKeyDer(decryptPrivateKey(pem, 'pem', options.passphrase));
+        return decodePrivateKeyDer(decryptPrivateKey(text, 'pem', options.passphrase));
     }
-    const { tag, der } = fromPem(pem);
     if (tag === PEM_LABELS.privateKey) {
         return decodePrivateKeyDer(der);
     }
