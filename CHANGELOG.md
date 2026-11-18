@@ -22,6 +22,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- `parsePem` reads `openssl ecparam -genkey` output, which puts an `EC PARAMETERS` block ahead of the
+  key, and ignores text around the block as RFC 7468 allows (the `Bag Attributes` lines of
+  `openssl pkcs12`, a trailing comment). Two key blocks in one string throw
+  `PEM content holds 2 blocks (…); expected one key` instead of `Invalid or unsupported PEM content`.
+- PKCS#8 v2 (`OneAsymmetricKey`) keys with an outer public key are read. RFC 5958 tags it
+  `[1] IMPLICIT BIT STRING`; the parser expected an explicit `[1]` around a BIT STRING, so keys that
+  OpenSSL reads were rejected and the non-standard form was accepted.
+- `parseSkDer` on a `SubjectPublicKeyInfo` throws
+  `Expected a private key, got a SubjectPublicKeyInfo: use parsePkDer` instead of claiming the key is
+  encrypted.
+- DER parsing rejects a public key BIT STRING with unused bits and bytes after the curve OID in an
+  algorithm identifier or `[0]` parameters.
+
 - Private keys shorter than the curve order are left-padded to full width. `ECDH#getPrivateKey()`
   drops leading zero bytes, so about one P-256 key in 256 was written short: PEM and DER differed
   from OpenSSL's, and the JWK `d` broke RFC 7518 section 6.2.2.1. `parseJwk` pads a short `d` written
