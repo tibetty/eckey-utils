@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `CURVE_PRIVATE_KEY_BYTES`: the private key size of each curve, which is the byte length of the
+  curve order and differs from `CURVE_KEY_BYTES` on 17 curves.
+
+### Fixed
+
+- Private keys shorter than the curve order are left-padded to full width. `ECDH#getPrivateKey()`
+  drops leading zero bytes, so about one P-256 key in 256 was written short: PEM and DER differed
+  from OpenSSL's, and the JWK `d` broke RFC 7518 section 6.2.2.1. `parseJwk` pads a short `d` written
+  by earlier releases.
+- Private key length is checked against the curve order instead of the coordinate size. On
+  secp160k1/r1/r2, secp224k1 and two WAP curves the order is wider, so a key read from OpenSSL could
+  not be written back (`Private key length 29 does not match curve secp224k1`).
+- An empty private key is rejected instead of being encoded.
+
 ## [1.2.0] - 2026-11-17
 
 ### Added

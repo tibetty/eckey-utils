@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ANSI_CURVES,
     CURVE_KEY_BYTES,
+    CURVE_PRIVATE_KEY_BYTES,
     CURVE_NAMES,
     generateDer,
     generateJwk,
@@ -81,8 +82,8 @@ describe.each(CURVE_NAMES)('corpus: %s', (curve) => {
         expect(generatePem(curve, { pk }).publicKey).toBe(publicPem);
     });
 
-    it('measures keys the way CURVE_KEY_BYTES says', () => {
-        expect(sk.length).toBeLessThanOrEqual(CURVE_KEY_BYTES[curve]);
+    it('measures keys the way CURVE_KEY_BYTES and CURVE_PRIVATE_KEY_BYTES say', () => {
+        expect(sk).toHaveLength(CURVE_PRIVATE_KEY_BYTES[curve]);
         expect(pk).toHaveLength(1 + 2 * CURVE_KEY_BYTES[curve]);
     });
 });

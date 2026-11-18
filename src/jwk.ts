@@ -7,7 +7,9 @@
 import {
     ANSI_CURVES,
     CURVE_KEY_BYTES,
+    CURVE_PRIVATE_KEY_BYTES,
     CURVE_TO_ANSI,
+    padPrivateKey,
     type AnsiCurveName,
     type CurveName,
 } from './curves.js';
@@ -115,12 +117,14 @@ export function decodeJwk(jwk: EcJsonWebKey): KeyInfo {
         if (privateKey.length === 0) {
             throw new Error('EC JSON Web Key has an empty "d"');
         }
-        if (privateKey.length > keyBytes) {
+        const privateKeyBytes = CURVE_PRIVATE_KEY_BYTES[curve];
+        if (privateKey.length > privateKeyBytes) {
             throw new Error(
-                `Private key length ${privateKey.length} does not match curve ${curve} (expected at most ${keyBytes})`
+                `Private key length ${privateKey.length} does not match curve ${curve} (expected at most ${privateKeyBytes})`
             );
         }
-        info.privateKey = privateKey;
+        // Earlier releases wrote `d` without its leading zero bytes; read those too.
+        info.privateKey = padPrivateKey(curve, privateKey);
     }
     return info;
 }
