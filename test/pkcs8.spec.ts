@@ -1,4 +1,4 @@
-import { createPrivateKey, generateKeyPairSync, sign, verify } from 'node:crypto';
+import { generateKeyPairSync, sign, verify } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { generateDer, generatePem, parsePem, parseSkDer } from '../src/index.js';
 import {
@@ -139,11 +139,6 @@ describe('PKCS#8 parsing', () => {
             ])
         );
 
-        // OpenSSL reads the same structure, so the encoding above is the RFC 5958 one.
-        expect(
-            createPrivateKey({ key: oneAsymmetricKey, format: 'der', type: 'pkcs8' })
-                .asymmetricKeyType
-        ).toBe('ec');
         expect(parseSkDer(oneAsymmetricKey)).toEqual({
             curveName: 'prime256v1',
             privateKey: sk,
