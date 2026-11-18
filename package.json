@@ -1,6 +1,6 @@
 {
     "name": "eckey-utils",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "description": "Convert raw EC key material to and from PEM, DER and JWK, so keys from crypto.ECDH can be used with crypto.sign and crypto.verify",
     "type": "module",
     "main": "./dist/index.cjs",
