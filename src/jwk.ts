@@ -14,7 +14,8 @@ import {
     type CurveName,
 } from './curves.js';
 import { decodeBase64Url, encodeBase64Url } from './base64url.js';
-import { toUncompressedPoint, type KeyInfo } from './der.js';
+import type { KeyInfo } from './der.js';
+import { toUncompressedPoint } from './points.js';
 
 /** An EC JSON Web Key. `x`/`y` are always present; `d` marks a private key. */
 export interface EcJsonWebKey {
@@ -43,6 +44,15 @@ function splitPoint(publicKey: Buffer): { x: Buffer; y: Buffer } {
     return { x: publicKey.subarray(1, half + 1), y: publicKey.subarray(half + 1) };
 }
 
+/** The JWK `crv` value of `curve`, or an error naming the curves JWK supports. */
+export function jwkCurve(curve: CurveName): AnsiCurveName {
+    const crv = CURVE_TO_ANSI[curve];
+    if (!crv) {
+        throw new Error(JWK_CURVE_ERROR);
+    }
+    return crv;
+}
+
 /**
  * Build JWKs from raw key material.
  *
@@ -51,10 +61,7 @@ function splitPoint(publicKey: Buffer): { x: Buffer; y: Buffer } {
  * without doing EC arithmetic.
  */
 export function encodeJwk(curve: CurveName, privateKey?: Buffer, publicKey?: Buffer): JwkKeyPair {
-    const crv = CURVE_TO_ANSI[curve];
-    if (!crv) {
-        throw new Error(JWK_CURVE_ERROR);
-    }
+    const crv = jwkCurve(curve);
     if (privateKey && !publicKey) {
         throw new Error('Raw public key is required to build a private JWK');
     }
