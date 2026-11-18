@@ -219,10 +219,8 @@ describe('JWK validation', () => {
         );
     });
 
-    it('requires the public key to build a private JWK', () => {
-        expect(() => generateJwk('prime256v1', { sk })).toThrow(
-            'Raw public key is required to build a private JWK'
-        );
+    it('derives the public key when only the private key is given', () => {
+        expect(generateJwk('prime256v1', { sk })).toEqual(generateJwk('prime256v1', { sk, pk }));
     });
 
     it('rejects a non-EC key', () => {

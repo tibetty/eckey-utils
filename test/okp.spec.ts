@@ -11,9 +11,6 @@ interface NodeOkpJwk {
     d: string;
 }
 
-const decodeBase64Url = (value: string): Buffer =>
-    Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-
 /** Node types `d` as required on a JWK; ours is optional by design. */
 const asPrivateJwk = (jwk: OkpJsonWebKey) =>
     ({ key: jwk, format: 'jwk' }) as unknown as Parameters<typeof createPrivateKey>[0];
@@ -27,8 +24,8 @@ function nodeKeyPair(type: 'ed25519' | 'ed448') {
         type === 'ed25519' ? generateKeyPairSync('ed25519') : generateKeyPairSync('ed448');
     const jwk = privateKey.export({ format: 'jwk' }) as unknown as NodeOkpJwk;
     return {
-        sk: decodeBase64Url(jwk.d),
-        pk: decodeBase64Url(jwk.x),
+        sk: Buffer.from(jwk.d, 'base64url'),
+        pk: Buffer.from(jwk.x, 'base64url'),
         jwk,
         privateKey,
         publicKey,
@@ -93,9 +90,17 @@ describe.each(CASES)('%s (%s)', (type, curve, size) => {
 describe('OKP validation', () => {
     const keys = nodeKeyPair('ed25519');
 
-    it('requires the public key to build a private JWK', () => {
-        expect(() => generateJwk('Ed25519', { sk: keys.sk })).toThrow(
-            'Raw public key is required to build a private JWK'
+    it('derives the public key when only the private key is given', () => {
+        expect(generateJwk('Ed25519', { sk: keys.sk })).toEqual(
+            generateJwk('Ed25519', { sk: keys.sk, pk: keys.pk })
+        );
+    });
+
+    it('rejects a public key that belongs to another private key', () => {
+        const other = Buffer.from(keys.pk);
+        other[0] ^= 1;
+        expect(() => generateJwk('Ed25519', { sk: keys.sk, pk: other })).toThrow(
+            'Public key does not match the private key on Ed25519'
         );
     });
 

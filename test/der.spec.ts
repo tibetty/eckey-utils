@@ -10,17 +10,18 @@ interface NodeEcJwk {
     d: string;
 }
 
-const decodeBase64Url = (value: string): Buffer =>
-    Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-
 /** Raw key material of a Node key pair, plus the OpenSSL encodings to compare against. */
 function nodeKeyPair(curve: string) {
     const { privateKey } = generateKeyPairSync('ec', { namedCurve: curve });
     const jwk = privateKey.export({ format: 'jwk' }) as unknown as NodeEcJwk;
     const publicKey = createPublicKey(privateKey);
     return {
-        sk: decodeBase64Url(jwk.d),
-        pk: Buffer.concat([Buffer.from([0x04]), decodeBase64Url(jwk.x), decodeBase64Url(jwk.y)]),
+        sk: Buffer.from(jwk.d, 'base64url'),
+        pk: Buffer.concat([
+            Buffer.from([0x04]),
+            Buffer.from(jwk.x, 'base64url'),
+            Buffer.from(jwk.y, 'base64url'),
+        ]),
         sec1Pem: privateKey.export({ format: 'pem', type: 'sec1' }).toString(),
         spkiPem: publicKey.export({ format: 'pem', type: 'spki' }).toString(),
         sec1Der: privateKey.export({ format: 'der', type: 'sec1' }) as Buffer,

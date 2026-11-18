@@ -169,9 +169,12 @@ parseJwk(privateKey); // back to { curveName, privateKey, publicKey }
 ```
 
 JWK covers the curves with a registered `crv` value: P-256, P-384 and P-521 (RFC 7518) plus
-secp256k1 (RFC 8812). A private JWK needs the raw public key as well: those RFCs require `x` and `y`
-next to `d`, and `x`/`y` cannot be derived from `d` without EC point arithmetic.
-Pass the curve either as the Node name (`secp256k1`) or as the JWK name (`P-256`).
+secp256k1 (RFC 8812). Those RFCs require `x` and `y` next to `d`; when only the private key is
+passed, the public key is derived from it through OpenSSL, and when both are passed they must
+match. Pass the curve either as the Node name (`secp256k1`) or as the JWK name (`P-256`).
+
+`kid` is the RFC 7638 thumbprint of the key, so both halves of a pair carry the same `kid` and
+different keys never share one.
 
 ### Errors
 

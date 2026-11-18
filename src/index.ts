@@ -228,21 +228,26 @@ function resolveArgs(normalized: NormalizedArgs): {
     curveName: CurveName;
     privateKey: Buffer | undefined;
     publicKey: Buffer | undefined;
+    /** Public key derived from the private key, when there is one and OpenSSL has the curve. */
+    derivedPublicKey: Buffer | undefined;
 } {
     const { curve, privateKey, publicKey } = normalized;
     const curveName = resolveCurveName(curve);
     assertRawKeys(privateKey, publicKey);
     checkKeyLengths(curveName, privateKey, publicKey);
-    if (privateKey) {
-        const derived = derivePublicKey(curveName, privateKey);
-        if (derived && publicKey && !derived.equals(toUncompressedPoint(curveName, publicKey))) {
-            throw new Error(`Public key does not match the private key on ${curveName}`);
-        }
+    const derivedPublicKey = privateKey && derivePublicKey(curveName, privateKey);
+    if (
+        derivedPublicKey &&
+        publicKey &&
+        !derivedPublicKey.equals(toUncompressedPoint(curveName, publicKey))
+    ) {
+        throw new Error(`Public key does not match the private key on ${curveName}`);
     }
     return {
         curveName,
         privateKey: privateKey && padPrivateKey(curveName, privateKey),
         publicKey,
+        derivedPublicKey,
     };
 }
 
@@ -389,8 +394,9 @@ export function parsePem(pem: string, options?: ParseOptions): KeyInfo {
  *
  * EC curves produce RFC 7518 keys (`P-256`, `P-384`, `P-521`) and RFC 8812 keys
  * (`secp256k1`) with `x`, `y` and `d`; `Ed25519` and `Ed448` produce RFC 8037
- * OKP keys with `x` and `d`. A private JWK needs the raw public key as well,
- * because both standards require the public half next to `d`.
+ * OKP keys with `x` and `d`. Both standards require the public half next to
+ * `d`; when only the private key is passed, the public key is derived from it
+ * through OpenSSL. `kid` is the RFC 7638 thumbprint, the same on both halves.
  */
 export function generateJwk(curve: OkpCurveName, keys?: RawKeyMaterial): OkpKeyPair;
 export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKeyPair;
@@ -401,8 +407,8 @@ export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKey
         return encodeOkpJwk(normalized.curve, normalized.privateKey, normalized.publicKey);
     }
     jwkCurve(resolveCurveName(normalized.curve));
-    const { curveName, privateKey, publicKey } = resolveArgs(normalized);
-    return encodeJwk(curveName, privateKey, publicKey);
+    const { curveName, privateKey, publicKey, derivedPublicKey } = resolveArgs(normalized);
+    return encodeJwk(curveName, privateKey, publicKey ?? derivedPublicKey);
 }
 
 /**
