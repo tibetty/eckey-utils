@@ -27,7 +27,7 @@ into raw keys.
 npm install eckey-utils
 ```
 
-Node.js 18 or newer. CI covers 20, 22 and 24 (Node 18 is end-of-life).
+Node.js 22 or newer. CI covers 22, 24 and 26.
 
 **Node.js only.** The package uses `Buffer` and `node:crypto`, and it exists to bridge raw keys to
 `crypto.sign` / `crypto.verify`. Browsers need none of this: WebCrypto takes JWK keys directly
