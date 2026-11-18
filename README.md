@@ -96,10 +96,13 @@ Key aliases accepted in either argument: `sk` / `privateKey`, `pk` / `publicKey`
 accepted in the object form: `curveName` / `curve` / `crv`. A curve name can be the Node name
 (`prime256v1`) or the JWK name (`P-256`).
 
-Key material is checked against the curve before encoding: a private key may not be longer than the
-curve's coordinate size, and a public point must be `1 + 2n` bytes uncompressed or `1 + n` bytes
-compressed, where `n` is `CURVE_KEY_BYTES[curve]`. A key from another curve, a truncated buffer or a
-hex string therefore fails at the call, with the curve and both sizes in the message.
+Key material is checked against the curve before encoding: a private key must be 1 to
+`CURVE_PRIVATE_KEY_BYTES[curve]` bytes (the byte length of the curve order), and a public point must
+be `1 + 2n` bytes uncompressed or `1 + n` bytes compressed, where `n` is `CURVE_KEY_BYTES[curve]`. A
+key from another curve, a truncated buffer or a hex string therefore fails at the call, with the
+curve and both sizes in the message. A private key shorter than the order, as `ECDH#getPrivateKey()`
+returns one time in 256 on P-256, is left-padded with zeros, so PEM, DER and JWK output always
+carries the full width that OpenSSL writes and RFC 7518 requires.
 
 The private key is encoded as `ECPrivateKey` (RFC 5915) by default, or as PKCS#8 `PrivateKeyInfo`
 (RFC 5958) with `{ type: 'pkcs8' }`; the public key is always `SubjectPublicKeyInfo` (RFC 5480).
@@ -183,8 +186,9 @@ Every error is a plain `Error` with a message naming the problem, for example:
 
 ## Supported curves
 
-`CURVE_NAMES` lists all 79 names, `CURVE_OIDS` maps each one to its OID, and `CURVE_KEY_BYTES` gives
-its coordinate size in bytes.
+`CURVE_NAMES` lists all 79 names, `CURVE_OIDS` maps each one to its OID, `CURVE_KEY_BYTES` gives
+its coordinate size in bytes and `CURVE_PRIVATE_KEY_BYTES` its private key size, which differs on 17
+curves (secp224k1 keys are 29 bytes, sect233k1 keys 29, for example).
 
 | Family               | Example                               |
 | -------------------- | ------------------------------------- |

@@ -22,7 +22,13 @@ import {
     toPem,
     type KeyInfo,
 } from './der.js';
-import { CURVE_KEY_BYTES, resolveCurveName, type CurveName } from './curves.js';
+import {
+    CURVE_KEY_BYTES,
+    CURVE_PRIVATE_KEY_BYTES,
+    padPrivateKey,
+    resolveCurveName,
+    type CurveName,
+} from './curves.js';
 import {
     decodeOkpJwk,
     encodeOkpJwk,
@@ -39,7 +45,13 @@ export type { KeyInfo } from './der.js';
 export type { EcJsonWebKey, JwkKeyPair } from './jwk.js';
 export type { OkpCurveName, OkpJsonWebKey, OkpKeyInfo, OkpKeyPair } from './okp.js';
 export { OKP_CURVES } from './okp.js';
-export { CURVE_NAMES, CURVE_OIDS, CURVE_KEY_BYTES, ANSI_CURVES } from './curves.js';
+export {
+    CURVE_NAMES,
+    CURVE_OIDS,
+    CURVE_KEY_BYTES,
+    CURVE_PRIVATE_KEY_BYTES,
+    ANSI_CURVES,
+} from './curves.js';
 
 /** Raw key material. `sk`/`pk` are the short aliases of `privateKey`/`publicKey`. */
 export interface RawKeyMaterial {
@@ -172,9 +184,10 @@ function normalizeArgs(input: GenerateInput, keys?: RawKeyMaterial): NormalizedA
  */
 function checkKeyLengths(curveName: CurveName, privateKey?: Buffer, publicKey?: Buffer): void {
     const keyBytes = CURVE_KEY_BYTES[curveName];
-    if (privateKey && privateKey.length > keyBytes) {
+    const privateKeyBytes = CURVE_PRIVATE_KEY_BYTES[curveName];
+    if (privateKey && (privateKey.length === 0 || privateKey.length > privateKeyBytes)) {
         throw new Error(
-            `Private key length ${privateKey.length} does not match curve ${curveName} (expected at most ${keyBytes})`
+            `Private key length ${privateKey.length} does not match curve ${curveName} (expected 1 to ${privateKeyBytes})`
         );
     }
     if (!publicKey) {
@@ -219,7 +232,11 @@ function resolveArgs(normalized: NormalizedArgs): {
     const curveName = resolveCurveName(curve);
     assertRawKeys(privateKey, publicKey);
     checkKeyLengths(curveName, privateKey, publicKey);
-    return { curveName, privateKey, publicKey };
+    return {
+        curveName,
+        privateKey: privateKey && padPrivateKey(curveName, privateKey),
+        publicKey,
+    };
 }
 
 /**

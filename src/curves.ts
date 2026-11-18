@@ -183,6 +183,54 @@ export const CURVE_KEY_BYTES: Readonly<Record<CurveName, number>> = Object.fromE
 ) as Record<CurveName, number>;
 
 /**
+ * Curves whose order, and so whose private key, is not as wide as a coordinate.
+ *
+ * The values are the widths OpenSSL writes for the private key of each curve.
+ */
+const PRIVATE_KEY_BYTES_OVERRIDES: Readonly<Partial<Record<CurveName, number>>> = {
+    secp160k1: 21,
+    secp160r1: 21,
+    secp160r2: 21,
+    secp224k1: 29,
+    sect233k1: 29,
+    sect409k1: 51,
+    c2pnb176v1: 21,
+    c2pnb208w1: 25,
+    c2pnb272w1: 33,
+    c2pnb304w1: 37,
+    c2pnb368w1: 45,
+    c2tnb431r1: 53,
+    'wap-wsg-idm-ecid-wtls1': 14,
+    'wap-wsg-idm-ecid-wtls7': 21,
+    'wap-wsg-idm-ecid-wtls8': 15,
+    'wap-wsg-idm-ecid-wtls9': 21,
+    'wap-wsg-idm-ecid-wtls10': 29,
+};
+
+/**
+ * Private key size in bytes of each curve: the byte length of the curve order.
+ *
+ * Equal to {@link CURVE_KEY_BYTES} except on the 17 curves whose order is
+ * wider or narrower than a coordinate. Private keys are written left-padded to
+ * this width, as OpenSSL does and as RFC 5915 and RFC 7518 require.
+ */
+export const CURVE_PRIVATE_KEY_BYTES: Readonly<Record<CurveName, number>> = Object.fromEntries(
+    Object.entries(CURVE_KEY_BYTES).map(([curve, bytes]) => [
+        curve,
+        PRIVATE_KEY_BYTES_OVERRIDES[curve as CurveName] ?? bytes,
+    ])
+) as Record<CurveName, number>;
+
+/** Left-pad a raw private key with zero bytes to the width of the curve order. */
+export function padPrivateKey(curve: CurveName, privateKey: Buffer): Buffer {
+    const width = CURVE_PRIVATE_KEY_BYTES[curve];
+    if (privateKey.length >= width) {
+        return privateKey;
+    }
+    return Buffer.concat([Buffer.alloc(width - privateKey.length), privateKey]);
+}
+
+/**
  * Curves that can be represented as a JWK (`crv` value to curve name).
  *
  * P-256/384/521 are registered by RFC 7518, secp256k1 by RFC 8812.

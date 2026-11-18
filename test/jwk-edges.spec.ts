@@ -46,9 +46,11 @@ describe('base64url handling', () => {
         expect(() => parseJwk(withField('d', ''))).toThrow('EC JSON Web Key has an empty "d"');
     });
 
-    it('accepts a shorter private key, as stripped leading zeros are legal', () => {
+    it('pads a shorter private key, as earlier releases wrote stripped leading zeros', () => {
         const shorter = sk.subarray(1);
-        expect(parseJwk(withField('d', shorter.toString('base64url'))).privateKey).toEqual(shorter);
+        expect(parseJwk(withField('d', shorter.toString('base64url'))).privateKey).toEqual(
+            Buffer.concat([Buffer.alloc(1), shorter])
+        );
     });
 });
 

@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { CURVE_KEY_BYTES, CURVE_NAMES, generateDer, generatePem } from '../src/index.js';
-import { generateRawKeyPair } from './helpers.js';
+import { createPrivateKey } from 'node:crypto';
+import {
+    CURVE_KEY_BYTES,
+    CURVE_NAMES,
+    CURVE_PRIVATE_KEY_BYTES,
+    generateDer,
+    generateJwk,
+    generatePem,
+    parsePem,
+} from '../src/index.js';
+import {
+    defined,
+    generateRawKeyPair,
+    generateShortKeyPair,
+    opensslPrivateKeyWidth,
+} from './helpers.js';
 
 const COORDINATE_SIZES = new Map([
     ['prime256v1', 32],
@@ -31,10 +45,35 @@ describe.each(CURVE_NAMES)('key length validation on %s', (curve) => {
         expect(generateDer(curve, { pk }).publicKey).toBeDefined();
     });
 
+    it('sizes private keys the way OpenSSL does', () => {
+        expect(CURVE_PRIVATE_KEY_BYTES[curve]).toBe(opensslPrivateKeyWidth(curve));
+    });
+
     it('rejects a private key that is too long for the curve', () => {
-        const tooLong = Buffer.alloc(keyBytes + 1, 0x01);
+        const width = CURVE_PRIVATE_KEY_BYTES[curve];
+        const tooLong = Buffer.alloc(width + 1, 0x01);
         expect(() => generatePem(curve, { sk: tooLong })).toThrow(
-            `Private key length ${tooLong.length} does not match curve ${curve} (expected at most ${keyBytes})`
+            `Private key length ${tooLong.length} does not match curve ${curve} (expected 1 to ${width})`
+        );
+    });
+
+    it('writes a key with a stripped leading zero exactly as OpenSSL does', () => {
+        const short = generateShortKeyPair(curve);
+        const pem = defined(generatePem(curve, short).privateKey);
+        const reference = createPrivateKey(pem).export({ format: 'pem', type: 'sec1' });
+        expect(pem).toBe(reference.toString().trimEnd());
+        expect(parsePem(pem).privateKey).toHaveLength(CURVE_PRIVATE_KEY_BYTES[curve]);
+    });
+
+    it('reads back an OpenSSL key and writes it again', () => {
+        const pem = createPrivateKey(
+            defined(generatePem(curve, generateRawKeyPair(curve)).privateKey)
+        )
+            .export({ format: 'pem', type: 'sec1' })
+            .toString();
+        const info = parsePem(pem);
+        expect(generatePem(curve, { sk: info.privateKey, pk: info.publicKey }).privateKey).toBe(
+            pem.trimEnd()
         );
     });
 
@@ -65,8 +104,17 @@ describe('length validation reporting', () => {
                 '(expected 61 for an uncompressed point, 31 for a compressed one)'
         );
         expect(() => generatePem('prime256v1', { sk: Buffer.alloc(33) })).toThrow(
-            'Private key length 33 does not match curve prime256v1 (expected at most 32)'
+            'Private key length 33 does not match curve prime256v1 (expected 1 to 32)'
         );
+        expect(() => generatePem('prime256v1', { sk: Buffer.alloc(0) })).toThrow(
+            'Private key length 0 does not match curve prime256v1 (expected 1 to 32)'
+        );
+    });
+
+    it('pads a short private key to the full width in a JWK, as RFC 7518 requires', () => {
+        const short = generateShortKeyPair('prime256v1');
+        const jwk = defined(generateJwk('prime256v1', short).privateKey);
+        expect(Buffer.from(defined(jwk.d), 'base64url')).toHaveLength(32);
     });
 
     it('accepts a private key shorter than the coordinate size', () => {
