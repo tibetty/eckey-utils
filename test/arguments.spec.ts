@@ -15,11 +15,17 @@ const CURVE: CurveName = 'prime256v1';
 
 describe('argument precedence', () => {
     it('prefers the keys the first argument provides', () => {
-        const pair = generatePem({ curveName: CURVE, sk }, { sk: other.sk, pk: other.pk });
+        const pair = generatePem({ curveName: CURVE, sk, pk }, { sk: other.sk, pk: other.pk });
         const info = parsePem(defined(pair.privateKey));
 
         expect(info.privateKey).toEqual(sk);
-        expect(info.publicKey).toEqual(other.pk);
+        expect(info.publicKey).toEqual(pk);
+    });
+
+    it('rejects a private key filled in from one pair and a public key from another', () => {
+        expect(() => generatePem({ curveName: CURVE, sk }, { sk: other.sk, pk: other.pk })).toThrow(
+            'Public key does not match the private key on prime256v1'
+        );
     });
 
     it('fills only the keys missing from the first argument', () => {

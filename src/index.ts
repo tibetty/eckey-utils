@@ -38,7 +38,8 @@ import {
     type OkpKeyInfo,
     type OkpKeyPair,
 } from './okp.js';
-import { decodeJwk, encodeJwk, type EcJsonWebKey, type JwkKeyPair } from './jwk.js';
+import { derivePublicKey, toUncompressedPoint } from './points.js';
+import { decodeJwk, encodeJwk, jwkCurve, type EcJsonWebKey, type JwkKeyPair } from './jwk.js';
 
 export type { CurveName, AnsiCurveName } from './curves.js';
 export type { KeyInfo } from './der.js';
@@ -232,6 +233,12 @@ function resolveArgs(normalized: NormalizedArgs): {
     const curveName = resolveCurveName(curve);
     assertRawKeys(privateKey, publicKey);
     checkKeyLengths(curveName, privateKey, publicKey);
+    if (privateKey) {
+        const derived = derivePublicKey(curveName, privateKey);
+        if (derived && publicKey && !derived.equals(toUncompressedPoint(curveName, publicKey))) {
+            throw new Error(`Public key does not match the private key on ${curveName}`);
+        }
+    }
     return {
         curveName,
         privateKey: privateKey && padPrivateKey(curveName, privateKey),
@@ -389,6 +396,7 @@ export function generateJwk(input: GenerateInput, keys?: RawKeyMaterial): JwkKey
         assertRawKeys(normalized.privateKey, normalized.publicKey);
         return encodeOkpJwk(normalized.curve, normalized.privateKey, normalized.publicKey);
     }
+    jwkCurve(resolveCurveName(normalized.curve));
     const { curveName, privateKey, publicKey } = resolveArgs(normalized);
     return encodeJwk(curveName, privateKey, publicKey);
 }

@@ -90,7 +90,8 @@ generatePem('prime256v1', { sk, pk }, { passphrase }); // encrypted, OpenSSL PBE
 
 A compressed public point (`02 || x` or `03 || x`, SEC 1 v2 section 2.3.3) is accepted wherever a
 public key is accepted and expanded to `04 || x || y` on the way out, so everything this library
-writes is uncompressed. Decompression is delegated to OpenSSL through `node:crypto`.
+writes is uncompressed. Decompression is delegated to OpenSSL through `node:crypto`, on every curve
+it implements.
 
 Key aliases accepted in either argument: `sk` / `privateKey`, `pk` / `publicKey`. Curve aliases
 accepted in the object form: `curveName` / `curve` / `crv`. A curve name can be the Node name
@@ -100,7 +101,10 @@ Key material is checked against the curve before encoding: a private key must be
 `CURVE_PRIVATE_KEY_BYTES[curve]` bytes (the byte length of the curve order), and a public point must
 be `1 + 2n` bytes uncompressed or `1 + n` bytes compressed, where `n` is `CURVE_KEY_BYTES[curve]`. A
 key from another curve, a truncated buffer or a hex string therefore fails at the call, with the
-curve and both sizes in the message. A private key shorter than the order, as `ECDH#getPrivateKey()`
+curve and both sizes in the message. OpenSSL then checks the values: the public point must lie on
+the curve, the private key must be from 1 to the curve order minus one, and when both keys are
+passed the public key must be the one the private key derives. Two curves of the same size (P-256
+and secp256k1, say) are therefore told apart as well. A private key shorter than the order, as `ECDH#getPrivateKey()`
 returns one time in 256 on P-256, is left-padded with zeros, so PEM, DER and JWK output always
 carries the full width that OpenSSL writes and RFC 7518 requires.
 
@@ -181,6 +185,9 @@ Every error is a plain `Error` with a message naming the problem, for example:
 | `Invalid DER encoding of PrivateKeyInfo`     | Malformed PKCS#8 private key DER           |
 | `Not an EC private key (algorithm OID: …)`   | PKCS#8 holding an RSA, OKP or other key    |
 | `Encrypted PEM requires a passphrase`        | Encrypted key without `{ passphrase }`     |
+| `Public key is not a point on …`             | The point is not on the named curve        |
+| `Private key is out of range for curve …`    | Zero, or not below the curve order         |
+| `Public key does not match the private key…` | The two keys come from different pairs     |
 | `Cannot decrypt the private key: …`          | Wrong passphrase, or an unsupported cipher |
 | `Unsupported PEM label "…"`                  | A PEM block this library does not handle   |
 
@@ -216,9 +223,10 @@ and OpenSSL build you run.
   `Proc-Type: 4,ENCRYPTED` container, which derives its key with `EVP_BytesToKey`. Prefer PKCS#8.
   `RSA PRIVATE KEY` blocks and certificates are rejected by name.
 
-- **Size is checked, membership is not.** Key length is validated against the curve, but two curves
-  of the same size (P-256 and secp256k1, say) cannot be told apart from raw bytes; Node and OpenSSL
-  reject such a mismatch when the key is used.
+- **Checks need the curve in your OpenSSL.** Points, private key ranges and key pairs are checked by
+  the OpenSSL that Node runs on. On a curve that build lacks (some drop the binary curves), keys are
+  still encoded and parsed, but only their sizes are checked and compressed points cannot be
+  expanded.
 - **Modern Node can often skip this library.** `crypto.createPrivateKey({ key: jwk, format: 'jwk' })`
   builds a `KeyObject` from a JWK directly (Node 15.12+). This library remains useful when you have
   raw keys and need PEM, or need to parse PEM back into raw keys.

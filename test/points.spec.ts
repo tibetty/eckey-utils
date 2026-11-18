@@ -112,15 +112,46 @@ describe('rejected points', () => {
             'hex'
         );
         expect(() => generateJwk('prime256v1', { pk: offCurve })).toThrow(
-            /^Cannot decompress the public key point on prime256v1: /
+            'Public key is not a point on prime256v1'
         );
-        expect(() => generatePem('prime256v1', { pk: offCurve })).toThrow(/Cannot decompress/);
+        expect(() => generatePem('prime256v1', { pk: offCurve })).toThrow(
+            'Public key is not a point on prime256v1'
+        );
     });
 
     it('rejects a compressed point of the wrong length for the curve', () => {
         expect(() => generatePem('secp384r1', { pk: compressPoint(pk) })).toThrow(
             'Public key length 33 does not match curve secp384r1 ' +
                 '(expected 97 for an uncompressed point, 49 for a compressed one)'
+        );
+    });
+});
+
+describe('private key validation', () => {
+    const { sk, pk } = generateRawKeyPair('prime256v1');
+
+    it.each([
+        ['zero', Buffer.alloc(32)],
+        ['the order or above', Buffer.alloc(32, 0xff)],
+    ])('rejects a private key of %s', (_, invalid) => {
+        expect(() => generatePem('prime256v1', { sk: invalid })).toThrow(
+            'Private key is out of range for curve prime256v1'
+        );
+        expect(() => generateJwk('prime256v1', { sk: invalid, pk })).toThrow(
+            'Private key is out of range for curve prime256v1'
+        );
+    });
+
+    it('rejects a public key that belongs to another private key', () => {
+        const other = generateRawKeyPair('prime256v1');
+        expect(() => generateDer('prime256v1', { sk, pk: other.pk })).toThrow(
+            'Public key does not match the private key on prime256v1'
+        );
+    });
+
+    it('accepts the compressed form of the matching public key', () => {
+        expect(generateDer('prime256v1', { sk, pk: compressPoint(pk) })).toEqual(
+            generateDer('prime256v1', { sk, pk })
         );
     });
 });

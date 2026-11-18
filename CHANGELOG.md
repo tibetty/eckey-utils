@@ -11,6 +11,15 @@ All notable changes to this project are documented in this file. The format foll
 - `CURVE_PRIVATE_KEY_BYTES`: the private key size of each curve, which is the byte length of the
   curve order and differs from `CURVE_KEY_BYTES` on 17 curves.
 
+### Changed
+
+- Key material is checked by OpenSSL before it is encoded, and public keys also when they are
+  parsed. A public point that is not on the curve throws `Public key is not a point on …`, a private
+  key of zero or not below the order throws `Private key is out of range for curve …`, and a public
+  key that does not belong to the private key throws `Public key does not match the private key on
+…`. These keys used to be encoded, and OpenSSL loaded them without complaint, failing only when
+  they were used. A curve missing from the running OpenSSL is still encoded, with size checks only.
+
 ### Fixed
 
 - Private keys shorter than the curve order are left-padded to full width. `ECDH#getPrivateKey()`
@@ -21,6 +30,9 @@ All notable changes to this project are documented in this file. The format foll
   secp160k1/r1/r2, secp224k1 and two WAP curves the order is wider, so a key read from OpenSSL could
   not be written back (`Private key length 29 does not match curve secp224k1`).
 - An empty private key is rejected instead of being encoded.
+- Compressed public points are expanded on every curve the running OpenSSL implements. Only P-256,
+  P-384, P-521 and secp256k1 worked, because decompression went through a JWK export; Brainpool,
+  secp224r1 and the binary curves failed with `Unsupported JWK EC curve`.
 
 ## [1.2.0] - 2026-11-17
 

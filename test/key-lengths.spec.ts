@@ -89,7 +89,9 @@ describe.each(CURVE_NAMES)('key length validation on %s', (curve) => {
         const other = generateRawKeyPair(otherCurve);
         if (other.pk.length === pk.length) {
             // The two curves share a coordinate width, so only the point check can tell.
-            expect(() => generatePem(curve, { pk: other.pk })).not.toThrow();
+            expect(() => generatePem(curve, { pk: other.pk })).toThrow(
+                `Public key is not a point on ${curve}`
+            );
             return;
         }
         expect(() => generatePem(curve, { pk: other.pk })).toThrow(/does not match curve/);
