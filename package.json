@@ -82,7 +82,7 @@
         "prettier": "^3.10.1",
         "publint": "^0.3.25",
         "tsup": "^9.0.0",
-        "typescript": "^6.0.3",
+        "typescript": "^7.0.2",
         "typescript-eslint": "^8.73.0",
         "vitest": "^5.1.0"
     }
